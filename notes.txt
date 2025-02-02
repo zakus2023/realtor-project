@@ -1,0 +1,113 @@
+# npm install --global yarn in the main folder
+# cd api
+# yarn init and then follow the prompts
+# yarn add cookie-parser cors dotenv express express-async-handler express-oauth2-jwt-bearer nodemon prisma @prima/
+- in the api folder create a file called index.js and the .env file
+
+
+INITIAL index.js content
+==============================
+import express from "express";
+import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+
+const port = 5000
+
+dotenv.config();
+
+const app = express();
+app.use(express.json())
+app.use(cookieParser())
+app.use(cors())
+
+
+app.listen(port, ()=>{
+    console.log("Sever is listening on port "+ port)
+})
+=============================================
+
+after that  # yarn run start
+
+- create a folder in the api folder called prisma and create a file called schema.prisma in the folder
+    - note: prisma will be used to abstract our database layer
+    - also remeber to install the prisma extension in the vscode
+
+    Here’s your Prisma schema with comprehensive comments explaining each part:
+
+
+    // The `generator` block defines the Prisma Client, which is used to interact with the database.
+    generator client {
+        provider = "prisma-client-js" // Specifies that Prisma Client for JavaScript should be generated.
+    }
+
+    // The `datasource` block specifies the database connection details.
+    datasource db {
+        provider = "mongodb" // Sets MongoDB as the database provider.
+        url = env("DATABASE_URL") // Reads the database URL from environment variables.
+    }
+
+    // Defines the `User` model representing users in the database.
+    model User {
+        id String @id @default(auto()) @map("_id") @db.ObjectId // Unique identifier, automatically generated, mapped to MongoDB `_id`.
+        name String? // Optional name of the user.
+        email String @unique // User's email, must be unique.
+        image String? // Optional profile image URL.
+        bookedVisit Json[] // Stores an array of booked visits as JSON data.
+        favResidenciesiD String[] @db.ObjectId // Array of ObjectIds referring to favorite residencies.
+        ownedResidencies Residency[] @relation("Owner") // One-to-many relation with the `Residency` model, where the user owns multiple residencies.
+    }
+
+    // Defines the `Residency` model representing properties available for booking.
+    model Residency {
+        id String @id @default(auto()) @map("_id") @db.ObjectId // Unique identifier, automatically generated, mapped to MongoDB `_id`.
+        title String // Title of the residency.
+        description String // Description of the residency.
+        price Int // Price of the residency.
+        address String // Address of the residency.
+        city String // City where the residency is located.
+        country String // Country where the residency is located.
+        image String // Image URL for the residency.
+        facilities Json // Stores residency facilities as JSON data.
+        userEmail String // Stores the email of the user who owns the residency.
+        owner User @relation("Owner", fields: [userEmail], references: [email]) 
+        // Establishes a relationship with the `User` model, linking the residency to its owner via the user's email.
+
+        createdAt DateTime @default(now()) // Automatically sets the creation timestamp.
+        updatedAt DateTime @updatedAt // Automatically updates the timestamp when the record is modified.
+    }
+    Summary of Key Features:
+    @id @default(auto()) @map("_id") @db.ObjectId: Ensures that MongoDB _id is used as the primary key.
+    Relationships:
+    A user can own multiple residencies (ownedResidencies).
+    Residency is linked to User through the userEmail field.
+    Automatic timestamps:
+    createdAt defaults to the current time.
+    updatedAt updates automatically when a record is modified.
+    JSON fields (bookedVisit, facilities): Stores flexible data structures.
+    This schema is optimized for a MongoDB-based application with user-owned properties. 🚀
+NOTE:whiles the server is still running: In the api folder run:  npx prisma db push and   npx prisma generate
+
+- Create a folder called config in the api folder
+    - create a file called prismaConfig.js in the folder created above
+- create a folder called controllers in the api folder
+    - create a file called userController.js in the controllers folder
+    - create a file called residenceController.js in the controllers folder
+- create a folder called routes in the api folder
+    - create a file called userRoute.js in the routes folder
+    - create a file called residenceRoute.js in the routes folder
+
+
+NB: To add data from a json file to the mongodb database
+    - create a folder in the api folder called data
+    - add the json file to its
+    - go to https://www.mongodb.com/try/download/database-tools
+    - scroll to MongoDB Command Line Database Tools Download under Tools
+    - extract the file
+    - open the bin folder and copy the Residency.json file into its
+    - open the folder in Command Line Interface (cmd)
+    - write the following command: ./mongoimport --uri mongodb+srv://userCorrect:qwertyC3600@mycluster.janfs9e.mongodb.net/aetherestate --collection Residency --type json --jsonArray --file Residency.json
+
+    FRONT END/CLIENT
+    ==================
+    

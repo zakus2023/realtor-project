@@ -76,7 +76,9 @@ after that  # yarn run start
         createdAt DateTime @default(now()) // Automatically sets the creation timestamp.
         updatedAt DateTime @updatedAt // Automatically updates the timestamp when the record is modified.
     }
+
     Summary of Key Features:
+    ==========================
     @id @default(auto()) @map("_id") @db.ObjectId: Ensures that MongoDB _id is used as the primary key.
     Relationships:
     A user can own multiple residencies (ownedResidencies).
@@ -111,12 +113,21 @@ NB: To add data from a json file to the mongodb database
     FRONT END/CLIENT
     ==================
     - for using an already existing frontend
-    - I first downloaded the frontend relationship
+    - I first downloaded the frontend starter pack
     - Then i created a repository on github
     - then i cd into the client folder and run the following commands
         - yarn
         - yarn run dev
     
-    Rebuilding the frontend from scratch
-    ====================================
+    Starting
+    ==============
+    - go to google font and search for Poppins
+    - select and copy the links generated and paste it in the index.html file below the meta
+
+    - In the src folder create a folder called components > then a folder called header
+    - In the header folder create the following files: Header.jsx and Header.css
     
+    - In the src folder create a folder called components > then a folder called hero
+    - in the hero folder create the following files: Hero.jsx and Hero.css
+
+   

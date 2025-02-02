@@ -110,4 +110,13 @@ NB: To add data from a json file to the mongodb database
 
     FRONT END/CLIENT
     ==================
+    - for using an already existing frontend
+    - I first downloaded the frontend relationship
+    - Then i created a repository on github
+    - then i cd into the client folder and run the following commands
+        - yarn
+        - yarn run dev
+    
+    Rebuilding the frontend from scratch
+    ====================================
     

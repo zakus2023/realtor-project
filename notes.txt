@@ -130,4 +130,15 @@ NB: To add data from a json file to the mongodb database
     - In the src folder create a folder called components > then a folder called hero
     - in the hero folder create the following files: Hero.jsx and Hero.css
 
+    NB: To add the white gradient behind the text in the hero
+        - add a div in App.jsx as follows and put the Header and Hero inside the div
+        - create the self closing div called the white-gradient
+        - in the App.css add the following:
+    NB:
+    To configure the slider, create a file called the commons.js file inside the utils folder
+    - import it in the Properties.jsx and use it as in file
+
+NB: Remember to install react-outside-click-handler package
+
+
    

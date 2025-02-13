@@ -1,0 +1,17 @@
+.listings-container{
+    gap: 2rem;
+}
+.listings-container .search-bar{
+    width: clamp(12rem, 100%, 28rem);
+    border-radius: 30px;
+    border: 1px solid rgba(120, 120, 120, 0.374);
+    flex-wrap: nowrap;
+}
+.listings-container .search-bar .button{
+    border-radius: 30px;
+    font-size: 14px;
+    padding: 10px 15px;
+}
+.listings-container .search-bar input{
+    width: 70%;
+}

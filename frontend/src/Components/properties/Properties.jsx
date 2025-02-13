@@ -2,18 +2,33 @@ import React from "react";
 import "./Properties.css";
 import { Swiper, SwiperSlide, useSwiper } from "swiper/react";
 import "swiper/css";
-import data from "../../utils/slider.json";
 import { sliderSettings } from "../../utils/common";
-
-function truncateToWords(text, numWords) {
-  const words = text.split(" ");
-  if (words.length > numWords) {
-    return words.slice(0, numWords).join(" ") + "...";
-  }
-  return text;
-}
+import PropertyCard from "../PropertyCard/PropertyCard";
+import useProperties from "../../hooks/useProperties";
+import { PuffLoader } from "react-spinners";
 
 function Properties() {
+  const { data, isError, isLoading } = useProperties();
+
+  if (isError) {
+    return (
+      <div className="wrapper">
+        <span>Error Loading Listings</span>
+      </div>
+    );
+  }
+  if (isLoading) {
+    return (
+      <div className="wrapper flexCenter" style={{ height: "60vh" }}>
+        <PuffLoader
+          height="80"
+          width="80"
+          radius={1}
+          aria-label="puff-loading"
+        />
+      </div>
+    );
+  }
   return (
     <section className="r-wrapper">
       <div className="paddings innerWidth r-container">
@@ -25,19 +40,9 @@ function Properties() {
         <Swiper {...sliderSettings}>
           <SliderButtons />
           {/* slider */}
-          {data.map((card, index) => (
+          {data.slice(0, 8).map((card, index) => (
             <SwiperSlide key={index}>
-              <div className="flexColStart r-card">
-                <img src={card.image} alt="home" />
-                <span className="secondaryText r-price">
-                  <span style={{ color: "orange" }}>$</span>
-                  <span>{card.price}</span>
-                </span>
-                <span className="primaryText">{card.name}</span>
-                <span className="secondaryText">
-                  {truncateToWords(card.detail, 5)}
-                </span>
-              </div>
+              <PropertyCard card={card} />
             </SwiperSlide>
           ))}
         </Swiper>
@@ -54,8 +59,12 @@ const SliderButtons = () => {
   const swiper = useSwiper();
   return (
     <div className="flexCenter r-button">
-      <button onClick={() => swiper.slidePrev()} className="r-prevButton">&lt;</button>
-      <button onClick={() => swiper.slideNext()} className="r-nextButton">&gt;</button>
+      <button onClick={() => swiper.slidePrev()} className="r-prevButton">
+        &lt;
+      </button>
+      <button onClick={() => swiper.slideNext()} className="r-nextButton">
+        &gt;
+      </button>
     </div>
   );
 };

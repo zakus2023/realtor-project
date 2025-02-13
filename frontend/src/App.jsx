@@ -1,28 +1,37 @@
-import { useState } from "react";
-import Header from "./Components/Header/Header";
-import Hero from "./Components/Hero/Hero";
+import React, { Suspense } from "react";
 import "./App.css";
-import Partners from "./Components/partners/Partners";
-import Properties from "./Components/properties/Properties";
-import Value from "./Components/value/Value";
-import Contact from "./Components/contact/Contact";
-import GetStarted from "./Components/getstarted/GetStarted";
-import Footer from "./Components/footer/Footer";
+import Entry from "./pages/Entry";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Layout from "./layout/Layout";
+import Listings from "./pages/Listings/Listings";
+import {
+  QueryClient,
+  QueryClientProvider,
+} from "react-query";
+import { ReactQueryDevtools } from 'react-query/devtools';
+import { ToastContainer } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css'
 
 function App() {
+  const queryClient = new QueryClient();
+
   return (
     <div className="App">
-      <div className="">
-        <div className="white-gradient" />
-        <Header />
-        <Hero />
-      </div>
-      <Partners />
-      <Properties />
-      <Value />
-      <Contact />
-      <GetStarted />
-      <Footer />
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <Suspense fallback={<div>Loading ...</div>}>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Entry />} />
+                {/* Add more nested routes here as needed */}
+                <Route path="/listings" element={<Listings />} />
+              </Route>
+            </Routes>
+          </Suspense>
+        </Router>
+        <ToastContainer />
+        <ReactQueryDevtools initialIsOpen={false}/>
+      </QueryClientProvider>
     </div>
   );
 }

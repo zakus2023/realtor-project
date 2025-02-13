@@ -25,28 +25,24 @@ function Contact() {
                   <div className="flexCenter icon">
                     <MdCall size={25} />
                   </div>
-                  <div className="flexColStart detail">
-                    <span className="primaryText" >Call</span>
-                    <span className="secondaryText" >1 055 028 7057</span>
+                  <div className="flexColStart description">
+                    <span className="primaryText">Call</span>
+                    <span className="secondaryText">1 055 028 7057</span>
                   </div>
                 </div>
-                <div className="flexCenter button">
-                    Call Now
-                </div>
+                <div className="flexCenter button">Call Now</div>
               </div>
               <div className="flexColCenter mode">
                 <div className="flexStart">
                   <div className="flexCenter icon">
                     <BsChatDotsFill size={25} />
                   </div>
-                  <div className="flexColStart detail">
-                    <span className="primaryText" >Chat</span>
-                    <span className="secondaryText" >1 055 028 7057</span>
+                  <div className="flexColStart description">
+                    <span className="primaryText">Chat</span>
+                    <span className="secondaryText">1 055 028 7057</span>
                   </div>
                 </div>
-                <div className="flexCenter button">
-                    Chat Now
-                </div>
+                <div className="flexCenter button">Chat Now</div>
               </div>
             </div>
             {/* second row */}
@@ -56,34 +52,30 @@ function Contact() {
                   <div className="flexCenter icon">
                     <MdCall size={25} />
                   </div>
-                  <div className="flexColStart detail">
-                    <span className="primaryText" >Video Call</span>
-                    <span className="secondaryText" >1 055 028 7057</span>
+                  <div className="flexColStart description">
+                    <span className="primaryText">Video Call</span>
+                    <span className="secondaryText">1 055 028 7057</span>
                   </div>
                 </div>
-                <div className="flexCenter button">
-                    Video Call Now
-                </div>
+                <div className="flexCenter button">Video Call Now</div>
               </div>
               <div className="flexColCenter mode">
                 <div className="flexStart">
                   <div className="flexCenter icon">
                     <HiChatBubbleBottomCenter size={25} />
                   </div>
-                  <div className="flexColStart detail">
-                    <span className="primaryText" >Message</span>
-                    <span className="secondaryText" >1 055 028 7057</span>
+                  <div className="flexColStart description">
+                    <span className="primaryText">Message</span>
+                    <span className="secondaryText">1 055 028 7057</span>
                   </div>
                 </div>
-                <div className="flexCenter button">
-                    Message Now
-                </div>
+                <div className="flexCenter button">Message Now</div>
               </div>
             </div>
           </div>
         </div>
         {/* right-side */}
-        <div className="c-right">
+        <div className="flexColCenter c-right">
           <div className="image-container">
             <img src="./contact.jpg" alt="" />
           </div>

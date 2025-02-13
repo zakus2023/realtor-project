@@ -1,6 +1,6 @@
 import React from 'react'
 import './Footer.css'
-// import logo from "/logowhite.png";
+import logo from "/logowhite.png";
 
 
 function Footer() {
@@ -9,7 +9,7 @@ function Footer() {
         <div className="paddings innerWidth flexCenter f-container">
             {/* left footer */}
             <div className="flexColCenter f-left">
-                {/* <img src={logo} alt="logo" width={80} height={60} /> */}
+                <img src={logo} alt="logo" width={80} height={60} />
                 <span className="secondaryText">
                     Our Vision is to make quality and affordable <br />housing accessible to all
                 </span>

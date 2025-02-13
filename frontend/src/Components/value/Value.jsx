@@ -13,7 +13,7 @@ import data from "../../utils/accordion";
 import { MdOutlineArrowDropDown } from "react-icons/md";
 
 function Value() {
-    const [className, setClassName]=useState(null)
+  const [className, setClassName] = useState(null);
 
   return (
     <section className="v-wrapper">
@@ -40,23 +40,29 @@ function Value() {
           >
             {data.map((item, i) => {
               return (
-                <AccordionItem className={`accordionItem ${className}`} key={i} uuid={i}>
+                <AccordionItem
+                  className={`accordionItem ${className}`}
+                  key={i}
+                  uuid={i}
+                >
                   <AccordionItemHeading>
                     <AccordionItemButton className="flexCenter accordionButton">
-                        <AccordionItemState>
-                            {({expanded})=>expanded ? setClassName("expanded"): setClassName("collapsed")}
-                        </AccordionItemState>
+                      <AccordionItemState>
+                        {({ expanded }) =>
+                          expanded
+                            ? setClassName("expanded")
+                            : setClassName("collapsed")
+                        }
+                      </AccordionItemState>
                       <div className="flexCenter icon">{item.icon}</div>
                       <span className="primaryText">{item.heading}</span>
                       <div className="flexCenter icon">
-                      <MdOutlineArrowDropDown size={20}/>
+                        <MdOutlineArrowDropDown size={20} />
                       </div>
                     </AccordionItemButton>
                   </AccordionItemHeading>
                   <AccordionItemPanel>
-                    <p className="secondaryText">
-                        {item.detail}
-                    </p>
+                    <p className="secondaryText">{item.description}</p>
                   </AccordionItemPanel>
                 </AccordionItem>
               );

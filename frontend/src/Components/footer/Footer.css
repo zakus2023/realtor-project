@@ -12,6 +12,9 @@
     margin-top: 1.5rem;
     font-weight: 500;
 }
+.r-footer .primaryText{
+    color: white;
+}
 
 @media (max-width: 768px){
     .f-container{

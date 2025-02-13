@@ -37,7 +37,7 @@
   width: 100%;
   gap: 1.6rem;
 }
-.mode .detail .primaryText {
+.mode .description .primaryText {
   font-size: 1.1rem;
   font-weight: 600;
 }
@@ -61,11 +61,11 @@
   .contactModes {
     width: 100%;
   }
-  .row{
+  .row {
     flex-direction: column;
     width: 100%;
   }
-  .mode{
+  .mode {
     width: 100%;
   }
 }

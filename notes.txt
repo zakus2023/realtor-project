@@ -41,7 +41,7 @@ after that  # yarn run start
         provider = "prisma-client-js" // Specifies that Prisma Client for JavaScript should be generated.
     }
 
-    // The `datasource` block specifies the database connection details.
+    // The `datasource` block specifies the database connection description.
     datasource db {
         provider = "mongodb" // Sets MongoDB as the database provider.
         url = env("DATABASE_URL") // Reads the database URL from environment variables.
@@ -139,6 +139,81 @@ NB: To add data from a json file to the mongodb database
     - import it in the Properties.jsx and use it as in file
 
 NB: Remember to install react-outside-click-handler package
+
+
+
+NB: install react-query. axios. dayjs, react-toastify
+
+    use it in the App.jsx as follows:
+        import React, { Suspense } from "react";
+        import "./App.css";
+        import Entry from "./pages/Entry";
+        import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+        import Layout from "./layout/Layout";
+        import Listings from "./pages/Listings/Listings";
+        *** import {QueryClient, QueryClientProvider} from 'react-query'
+
+        function App() {
+        const queryClient = new QueryClient()
+
+        return (
+            <div className="App">
+            ***<QueryClientProvider client={queryClient}>
+                <Router>
+                <Suspense fallback={<div>Loading ...</div>}>
+                <Routes>
+                    <Route path="/" element={<Layout />}>
+                    <Route index element={<Entry />} />
+                    {/* Add more nested routes here as needed */}
+                    <Route path="/listings" element={<Listings/>}/>
+                    </Route>
+                </Routes>
+                </Suspense>
+            </Router>
+            ***</QueryClientProvider>
+            
+            </div>
+        );
+        }
+
+        export default App;
+
+
+NB: Create a folder called hooks and add the useProperties.jsx hook
+
+    import { useQuery } from "react-query";
+
+    // Function to fetch all properties
+    async function getAllProperties() {
+    // Implement your data fetching logic here
+    // For example, using fetch or axios to retrieve data from an API
+    }
+
+    function useProperties() {
+    // Destructure the return values from useQuery
+    const { data, isError, isLoading, refetch } = useQuery(
+        ["allProperties"], // Unique key for the query
+        getAllProperties, // Function that fetches the data
+        { refetchOnWindowFocus: false } // Configuration options
+    );
+
+    // Return the relevant data and functions
+    return {
+        data,      // The fetched data
+        isLoading, // Boolean indicating if the query is loading
+        isError,   // Boolean indicating if there was an error
+        refetch,   // Function to manually refetch the data
+    };
+    }
+
+    export default useProperties;
+
+
+Import and use the useProperties.jsx inside the Listings.jsx
+
+NB: in the utils folder create a file called api.js
+
+NB: Remember to install react-spinners, lodash
 
 
    

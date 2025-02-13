@@ -96,6 +96,9 @@ a {
   cursor: pointer;
   transform: scale(1.1);
 }
+.wrapper{
+  background: white;
+}
 
 /* media queries */
 @media (min-width: 1536px) {

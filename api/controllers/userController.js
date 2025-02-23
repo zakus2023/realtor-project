@@ -16,6 +16,35 @@ export const createUser = asyncHandler(async (req, res) => {
   } else res.send(201, { message: "User already registered" });
 });
 
+// fetch a particular user's details
+
+export const fetchUserDetails = asyncHandler(async (req, res) => {
+  const { email } = req.params;
+  console.log("Email: ", email);
+  // Validate email
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  try {
+    // Fetch user details from the database
+    const user = await prisma.user.findUnique({
+      where: { email: email },
+    });
+
+    // Check if user exists
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Return user details
+    res.status(200).json(user);
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 // =====================================================================
 // book a visit
 
@@ -110,7 +139,6 @@ export const userFavourites = asyncHandler(async (req, res) => {
   const { resId } = req.params;
 
   try {
-    // Find user and check for existing favourites
     const user = await prisma.user.findUnique({
       where: { email },
       select: { favResidenciesID: true },
@@ -120,9 +148,10 @@ export const userFavourites = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const favourites = user.favResidenciesID || []; // Ensure it's an array
+    const favourites = user.favResidenciesID || [];
 
     if (favourites.includes(resId)) {
+      // Remove the resId from favourites
       const updatedFavourites = favourites.filter((fav) => fav !== resId);
 
       await prisma.user.update({
@@ -130,28 +159,27 @@ export const userFavourites = asyncHandler(async (req, res) => {
         data: { favResidenciesID: { set: updatedFavourites } },
       });
 
-      return res.status(400).json({
+      return res.status(200).json({
         message: "You have removed the property from your favourite list",
+        favourites: updatedFavourites, // Return the updated favourites array
+      });
+    } else {
+      // Add the resId to favourites
+      const updatedFavourites = [...favourites, resId];
+
+      await prisma.user.update({
+        where: { email },
+        data: { favResidenciesID: { set: updatedFavourites } },
+      });
+
+      return res.status(200).json({
+        message: "Property added to favourites",
+        favourites: updatedFavourites, // Return the updated favourites array
       });
     }
-
-    // Update user favourites array
-    await prisma.user.update({
-      where: { email },
-      data: {
-        favResidenciesID: {
-          set: [...favourites, resId],
-        },
-      },
-    });
-
-    res.json({
-      message:
-        "You have added the property to your favourite list successfully",
-    });
   } catch (error) {
-    console.error("Error adding to favourites:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error("Error in userFavourites:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 

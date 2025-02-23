@@ -2,19 +2,16 @@ import React from "react";
 import { AiFillHeart } from "react-icons/ai";
 import './PropertyCard.css'
 import {truncate} from 'lodash'
+import { useNavigate } from "react-router-dom";
+import LikeButton from "../LikeButton/LikeButton.";
 
-function truncateToWords(text, numWords) {
-  const words = text.split(" ");
-  if (words.length > numWords) {
-    return words.slice(0, numWords).join(" ") + "...";
-  }
-  return text;
-}
 
 function PropertyCard({ card }) {
+  const navigate = useNavigate()
+
   return (
-    <div className="flexColStart r-card">
-       <AiFillHeart size={24} color="white"/>
+    <div className="flexColStart r-card" onClick={()=>navigate(`/listing/${card.id}`)}>
+       <LikeButton id={card.id}/>
       <img src={card.images[0]} alt="home" />
      
       <span className="secondaryText r-price">

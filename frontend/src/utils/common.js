@@ -16,3 +16,28 @@ export const sliderSettings = {
     },
   },
 };
+
+// update favourites
+export const updateFavourites = (id, favourites) => {
+  // Ensure favourites is an array
+  if (!Array.isArray(favourites)) {
+    console.error("Favourites must be an array");
+    return favourites; // Return the original value to avoid breaking the app
+  }
+
+  // Ensure id is valid
+  if (id === undefined || id === null) {
+    console.error("Invalid ID");
+    return favourites; // Return the original value
+  }
+
+  // Check if the id is already in favourites
+  if (favourites.includes(id)) {
+    // Remove the id from the array (unfavorite)
+    return favourites.filter((resId) => resId !== id);
+  } else {
+    // Add the id to the array (favorite)
+    return [...favourites, id];
+  }
+};
+

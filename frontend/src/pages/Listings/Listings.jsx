@@ -7,7 +7,7 @@ import PropertyCard from "../../Components/PropertyCard/PropertyCard";
 
 function Listings() {
   const { data, isError, isLoading } = useProperties();
-  
+  const [filter, setFilter] = useState("");
 
   if (isError) {
     return (
@@ -31,11 +31,23 @@ function Listings() {
   return (
     <div className="wrapper">
       <div className="flexColCenter paddings innerWidth listings-container">
-        <SearchBar />
+        <SearchBar filter={filter} setFilter={setFilter} />
         <div className="paddings flexCenter listings">
-          {data.map((card, i) => (
-            <PropertyCard key={card.id || i} card={card} />
-          ))}
+          {
+            /* {data.map((card, i) => (
+            <PropertyCard key={i} card={card} />
+          ))} */
+            data
+              .filter(
+                (listing) =>
+                  listing.title.toLowerCase().includes(filter.toLowerCase()) ||
+                  listing.city.toLowerCase().includes(filter.toLowerCase()) ||
+                  listing.country.toLowerCase().includes(filter.toLowerCase())
+              )
+              .map((card, i) => (
+                <PropertyCard key={i} card={card} />
+              ))
+          }
         </div>
       </div>
     </div>

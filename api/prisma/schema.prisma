@@ -14,7 +14,7 @@ model User {
     image String?
     role  String @default("user")
     status String @default("active")
-    telepohone String?
+    telephone String?
     address String?
     bookedVisit Json[]
     favResidenciesID String[] @db.ObjectId
@@ -38,7 +38,8 @@ model Residency {
     status String @default("review") //published, review
     owner        User     @relation("Owner", fields: [userEmail], references: [email])
     propertyType String   @default("house")
-    tenureType   String   @default("sell")
+    tenureType   String   @default("Sale")
+    propertyStatus String @default("published")
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
 

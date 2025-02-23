@@ -4,7 +4,13 @@
     flex-direction: column;
     align-items: center;
   }
-  
+  .fav-listings {
+    display: flex;
+    justify-content: space-around;
+    gap: 1rem;
+}
+
+
   .listings-container .search-bar {
     width: clamp(12rem, 100%, 28rem);
     border-radius: 30px;
@@ -33,9 +39,4 @@
     font-size: 14px;
   }
   
-  .listings {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2rem;
-    width: 100%;
-  }
+ 

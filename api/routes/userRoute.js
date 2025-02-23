@@ -4,18 +4,21 @@ import {
   cancelBooking,
   createUser,
   fetchUserBookings,
+  fetchUserDetails,
   fetchUserFavourites,
   userFavourites,
 } from "../controllers/userController.js";
+import jwtCheck from "../config/auth0Config.js";
 
 const router = express.Router();
 
-router.post("/register", createUser);
-router.post("/bookVisit/:id", bookVisit);
-router.post("/bookedVisits", fetchUserBookings);
-router.post("/cancelBooking/:id", cancelBooking);
-router.post("/addFavourites/:resId", userFavourites);
-router.post("/fetchUserfavourites", fetchUserFavourites);
-//router.post("/removefavourite/:resId", removeFavourite);
+router.post("/register", jwtCheck, createUser);
+
+router.post("/bookVisit/:id", jwtCheck, bookVisit);
+router.get("/userDetails/:email", jwtCheck, fetchUserDetails);
+router.post("/bookedVisits", jwtCheck, fetchUserBookings);
+router.post("/cancelBooking/:id", jwtCheck, cancelBooking);
+router.post("/addFavourites/:resId", jwtCheck, userFavourites);
+router.post("/fetchUserfavourites", jwtCheck, fetchUserFavourites);
 
 export default router;

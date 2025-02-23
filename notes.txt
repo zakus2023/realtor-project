@@ -215,5 +215,182 @@ NB: in the utils folder create a file called api.js
 
 NB: Remember to install react-spinners, lodash
 
+NB: To add the Map Remember to install react-leaflet@4.2.1 and leaflet in the frontend
+- Create the Map component and use it in the Listing.jsx
+- GeoCoderMarker.jsx and use it inside the Map.jsx
+
+NB: For Authentication I will implement Auth0
+    - signup or sign in
+    - go to the application page
+    - create new application
+    - name it
+    - single page web application
+    - react
+    - settings
+    - Allowed callback url: http://localhost:5173, http://localhost:5173/, http://localhost:5173/callback
+    - Allowed Logout uri: http://localhost:5173
+    - Allowed Web origin: http://localhost:5173
+
+    Ensure API is Configured in Auth0
+        Go to your Auth0 Dashboard.
+        Click on Applications > APIs in the sidebar.
+        Check if you have an API created with http://localhost:5000 as the Identifier (Audience).
+        If not, create one:
+        Name: My Local API
+        Identifier: http://localhost:5000
+        Signing Algorithm: Auth0
+
+
+    - yarn add @auth0/auth0-react@2.0.1
+    - Use the Auth0 in the main.jsx file as follows:
+        NB: Copy the domain from Auth0 console: domain='dev-ccmy6um2itf0jid5.us.auth0.com'
+            
+            import { StrictMode } from 'react'
+            import { createRoot } from 'react-dom/client'
+            import './index.css'
+            import App from './App.jsx'
+            import {Auth0Provider} from '@auth0/auth0-react'
+
+            createRoot(document.getElementById('root')).render(
+            <StrictMode>
+                <Auth0Provider
+                domain='dev-ccmy6um2itf0jid5.us.auth0.com'
+                clientId='lHlNWSq1xLOkWXpViqAnLCjmT0hppfqq'
+                authorizationParams={
+                {
+                redirect_uri:"http://localhost:5173"
+                }
+                }
+                audience="http://localhost:5000"
+                scope="openid profile email"
+                >
+                <App />
+                </Auth0Provider>
+                
+            </StrictMode>,
+            )
+    
+    - yarn add @mantine/core @mantine/dates @mantine/form @emotion/react @mantine/hooks OR yarn add antd @ant-design/icons
+    - Then open Header.jsx and add the following:
+    - create a component called ProfileMenu.jsx and use it in the Header.jsx
+
+SAVE USER INFORMATION IN A CONTEXT
+    - create a folder in the src folder called context
+    - create a file called UserDetailsContext.js in the folder created above
+        - use the UserDetailsContext context in the App.jsx file
+            import React, { Suspense, useState } from "react";
+import "./App.css";
+import Entry from "./pages/Entry";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Layout from "./layout/Layout";
+import Listings from "./pages/Listings/Listings";
+import { QueryClient, QueryClientProvider } from "react-query";
+import { ReactQueryDevtools } from "react-query/devtools";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import Listing from "./pages/listing/Listing";
+import UserDetailsContext from "./context/UserDetailsContext";
+
+function App() {
+  const queryClient = new QueryClient();
+
+ *** const [userDetails, setUserDetails] = useState({
+    favourites: [],
+    bookings: [],
+    token: null,
+  });
+
+  return (
+    <div className="App">
+     *** <UserDetailsContext.Provider value={{ userDetails, setUserDetails }}>
+        <QueryClientProvider client={queryClient}>
+          <Router>
+            <Suspense fallback={<div>Loading ...</div>}>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<Entry />} />
+                  {/* Add more nested routes here as needed */}
+                  <Route path="/listings" element={<Listings />} />
+                  <Route path="/listing/:id" element={<Listing />} />
+                </Route>
+              </Routes>
+            </Suspense>
+          </Router>
+          <ToastContainer />
+          <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
+      ***</UserDetailsContext.Provider>
+    </div>
+  );
+}
+
+export default App;
+-
+
+- Then inside the api.js create the api call function for create user as follows:
+    -
+
+
+- Then open Layout.jsx and use the useContext as follows:
+
+//Import necessary dependencies from React and other libraries
+import React, { useContext, useEffect } from "react"; // React for component creation, useContext for state management, and useEffect for side effects
+import "./Layout.css"; // Importing CSS styles for the Layout component
+import Header from "../Components/Header/Header"; // Importing the Header component
+import Footer from "../Components/Footer/Footer"; // Importing the Footer component
+import { Outlet } from "react-router-dom"; // Outlet is used to render child components based on the route
+import { useAuth0 } from "@auth0/auth0-react"; // Auth0 hook for authentication management
+import UserDetailsContext from "../context/UserDetailsContext"; // Importing user details context for global state management
+import { useMutation } from "react-query"; // Importing useMutation for API requests
+import { createUser } from "../utils/api"; // Function to create a user in the backend
+
+// Define the Layout component
+function Layout() {
+  // Extract authentication-related data from Auth0
+  const { isAuthenticated, user } = useAuth0(); // `isAuthenticated` tells if the user is logged in, `user` contains user details
+
+  // Access the user details context to update user-related state globally
+  const { setUserDetails } = useContext(UserDetailsContext);
+
+  // Define a mutation function to create a user in the database when they log in
+  const { mutate } = useMutation({
+    mutationKey: [user?.email], // The mutation is identified by the user's email
+    mutationFn: () => createUser(user?.email), // Calls the API function to create a user
+  });
+
+  // useEffect runs when `isAuthenticated` changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      mutate(); // If the user is authenticated, call the mutation to register or update the user in the database
+    }
+  }, [isAuthenticated]); // Dependency array ensures this effect runs only when `isAuthenticated` changes
+
+  return (
+    <>
+      {/* Wrapper div with styling for background color and overflow */}
+      <div style={{ background: "var(--black)", overflow: "hidden" }}>
+        <Header /> {/* Render the Header component */}
+        <Outlet />{" "}
+        {/* Render the child components based on the current route */}
+        <Footer /> {/* Render the Footer component */}
+      </div>
+    </>
+  );
+}
+
+// Export the Layout component so it can be used in other parts of the application
+export default Layout;
+
+- Then inside the config folder create a file called auth0Config.js
+
+- update the register route with the token
+
+BOOKING MODAL
+- in the hooks folder create a file called useAuthCheck.jsx and use it in the components where you want to check authentication
+ example in the: listing component for booking a visit
+- Create a component called BookingModal in the components folder
+
+
+
 
    

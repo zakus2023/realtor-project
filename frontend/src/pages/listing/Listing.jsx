@@ -26,6 +26,7 @@ function Listing() {
   const { data, isError, isLoading } = useQuery(["listing", id], () =>
     getListing(id)
   );
+  console.log(data)
 
   // State to track the selected image
   const [selectedImage, setSelectedImage] = useState(data?.images[0]);

@@ -1,36 +1,8 @@
-.ant-modal-content {
-    border-radius: 10px; /* Rounded corners */
-  }
-  
-  .ant-modal-header {
-    border-bottom: 1px solid #f0f0f0; /* Add a border below the header */
-  }
-  
-  .ant-modal-footer {
-    border-top: 1px solid #f0f0f0; /* Add a border above the footer */
-  }
+/* More specific selectors */
+.create-listing-modal .ant-modal {
+  border-radius: 10px !important;
+}
 
-  .ant-steps {
-    margin-bottom: 24px;
-  }
-  
-  .ant-steps-item-process .ant-steps-item-icon {
-    background-color: #007bff;
-    border-color: #007bff;
-  }
-  
-  .ant-steps-item-finish .ant-steps-item-icon {
-    background-color: #52c41a;
-    border-color: #52c41a;
-  }
-  .ant-upload-list-picture-card .ant-upload-list-item {
-    border-radius: 8px;
-  }
-  
-  .ant-upload-list-picture-card .ant-upload-list-item-thumbnail img {
-    object-fit: cover;
-  }
-  
-  .ant-upload-list-item-name {
-    color: #007bff;
-  }
+.create-listing-modal .ant-btn {
+  border-radius: 5px !important;
+}

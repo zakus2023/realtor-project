@@ -1,42 +1,223 @@
 import { UploadOutlined } from "@ant-design/icons";
-import { Button, Input, Modal, Select, Steps, Upload, Form } from "antd";
-import React, { useState } from "react";
-import "./CreateListing.css"; // Import the CSS file
+import {
+  Button,
+  Input,
+  Modal,
+  Select,
+  Steps,
+  Upload,
+  InputNumber,
+  message,
+} from "antd";
+import "antd/dist/reset.css";
+import React, { useContext, useState } from "react";
+import "./CreateListing.css";
+import { useMutation } from "react-query";
+
+import { useAuth0 } from "@auth0/auth0-react";
+import UserDetailsContext from "../../context/UserDetailsContext";
+import { addPropertyApiCallFunction } from "../../utils/api";
 
 const { Step } = Steps;
 const { Option } = Select;
 
 function CreateListing({ opened, setOpened }) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [form] = Form.useForm();
+  const { user } = useAuth0();
+  const { userDetails } = useContext(UserDetailsContext);
+  const token = userDetails.token;
 
-  // Steps content
+  const [currentStep, setCurrentStep] = useState(0);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    price: "",
+    address: "",
+    city: "",
+    Region: "",
+    country: "",
+    gpsCode: "",
+    propertyType: "",
+    tenureType: "",
+    images: [],
+    documentations: [],
+    facilities: {
+      beds: 1,
+      baths: 1,
+      kitchen: 1,
+      parking: 0,
+    },
+  });
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleNumberChange = (field, value) => {
+    setFormData({
+      ...formData,
+      facilities: { ...formData.facilities, [field]: value },
+    });
+  };
+
+  const handleFileChange = (name, { fileList }) => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: [...fileList],
+    }));
+  };
+
+  const handleNext = () => {
+    setCurrentStep(currentStep + 1);
+  };
+
+  const handlePrev = () => {
+    setCurrentStep(currentStep - 1);
+  };
+
+  // Check if the current step's fields are filled
+  const isCurrentStepValid = () => {
+    switch (currentStep) {
+      case 0: // Basic Information
+        return (
+          formData.title.trim() !== "" &&
+          formData.description.trim() !== "" &&
+          formData.price.trim() !== ""
+        );
+      case 1: // Address and Location
+        return (
+          formData.address.trim() !== "" &&
+          formData.Region.trim() !== "" &&
+          formData.city.trim() !== "" &&
+          formData.country.trim() !== ""
+        );
+      case 2: // Facilities
+        return (
+          formData.facilities.beds > 0 &&
+          formData.facilities.baths > 0 &&
+          formData.facilities.kitchen > 0
+        );
+      case 3: // Other Information
+        return formData.propertyType !== "" && formData.tenureType !== "";
+      case 4: // Upload Files
+        return formData.images.length > 0 && formData.documentations.length > 0;
+      default:
+        return false;
+    }
+  };
+
+  // Check if all fields in the form are filled
+  const isFormValid = () => {
+    return (
+      formData.title.trim() !== "" &&
+      formData.description.trim() !== "" &&
+      formData.price.trim() !== "" &&
+      formData.address.trim() !== "" &&
+      formData.city.trim() !== "" &&
+      formData.Region.trim() !== "" &&
+      formData.country.trim() !== "" &&
+      formData.propertyType !== "" &&
+      formData.tenureType !== "" &&
+      formData.images.length > 0 &&
+      formData.documentations.length > 0
+    );
+  };
+
+  // Mutation for adding property
+  const { mutate, isLoading } = useMutation(
+    (payload) => addPropertyApiCallFunction({ payload, email: user?.email, token }),
+    {
+      onSuccess: () => {
+        message.success("Property added successfully!");
+        setOpened(false);
+        setFormData({
+          title: "",
+          description: "",
+          price: "",
+          address: "",
+          city: "",
+          Region: "",
+          country: "",
+          gpsCode: "",
+          propertyType: "",
+          tenureType: "",
+          images: [],
+          documentations: [],
+          facilities: {
+            beds: 1,
+            baths: 1,
+            kitchen: 1,
+            parking: 0,
+          },
+        });
+      },
+      onError: (error) => {
+        message.error(`Failed to add property: ${error.message}`);
+      },
+    }
+  );
+
+  // Handle form submit
+  const handleSubmit = async () => {
+    if (!formData) {
+      console.error("formData is undefined");
+      return;
+    }
+  
+    // Extract file names from images and documentations
+    const imageNames = formData.images.map((image) => image.name);
+    const documentationNames = formData.documentations.map((doc) => doc.name);
+  
+    // Construct the payload
+    const payload = {
+      title: formData.title,
+      description: formData.description,
+      price: formData.price,
+      address: formData.address,
+      city: formData.city,
+      country: formData.country,
+      gpsCode: formData.gpsCode,
+      propertyType: formData.propertyType,
+      tenureType: formData.tenureType,
+      facilities: formData.facilities || [], // Ensure it's an array
+      userEmail: user?.email, // Ensure user is defined
+      Region: formData.Region, // Ensure Region is included
+      images: imageNames, // Array of image names
+      documentations: documentationNames, // Array of document names
+    };
+  
+    console.log("Submitting Payload:", payload); // Debugging
+  
+    // Call mutate with the JSON payload
+    mutate(payload);
+  };
+
   const steps = [
     {
       title: "Basic Information",
       content: (
         <>
-          <Form.Item
+          <Input
             name="title"
-            label="Title"
-            rules={[{ required: true, message: "Please enter a title!" }]}
-          >
-            <Input placeholder="Please Enter title" />
-          </Form.Item>
-          <Form.Item
+            placeholder="Title"
+            value={formData.title}
+            onChange={handleChange}
+            style={{ marginBottom: "1rem" }}
+          />
+          <Input.TextArea
             name="description"
-            label="Description"
-            rules={[{ required: true, message: "Please enter a description!" }]}
-          >
-            <Input.TextArea placeholder="Enter listing description" rows={4} />
-          </Form.Item>
-          <Form.Item
+            placeholder="Description"
+            value={formData.description}
+            onChange={handleChange}
+            style={{ marginBottom: "1rem" }}
+          />
+          <Input
+            type="number"
             name="price"
-            label="Price"
-            rules={[{ required: true, message: "Please enter a price!" }]}
-          >
-            <Input type="number" placeholder="Enter listing price" />
-          </Form.Item>
+            placeholder="Price"
+            value={formData.price}
+            onChange={handleChange}
+            style={{ marginBottom: "1rem" }}
+          />
         </>
       ),
     },
@@ -44,67 +225,122 @@ function CreateListing({ opened, setOpened }) {
       title: "Address and Location",
       content: (
         <>
-          <Form.Item
+          <Input
             name="address"
-            label="Address"
-            rules={[{ required: true, message: "Please enter an Address!" }]}
-          >
-            <Input placeholder="Enter listing location/address" />
-          </Form.Item>
-          <Form.Item
+            placeholder="Address"
+            value={formData.address}
+            onChange={handleChange}
+            style={{ marginBottom: "1rem" }}
+          />
+          <Input
             name="city"
-            label="City"
-            rules={[{ required: true, message: "Please enter a city!" }]}
-          >
-            <Input placeholder="Enter listing City" />
-          </Form.Item>
-          <Form.Item
+            placeholder="City"
+            value={formData.city}
+            onChange={handleChange}
+            style={{ marginBottom: "1rem" }}
+          />
+          <Input
+            name="Region"
+            placeholder="Region"
+            value={formData.Region}
+            onChange={handleChange}
+            style={{ marginBottom: "1rem" }}
+          />
+          <Input
             name="country"
-            label="Country"
-            rules={[{ required: true, message: "Please enter a Country!" }]}
-          >
-            <Input placeholder="Enter listing Country" />
-          </Form.Item>
-          <Form.Item
+            placeholder="Country"
+            value={formData.country}
+            onChange={handleChange}
+            style={{ marginBottom: "1rem" }}
+          />
+          <Input
             name="gpsCode"
-            label="GPS CODE"
-            rules={[
-              { required: true, message: "Please enter a Ghana Post GPS Code" },
-            ]}
-          >
-            <Input placeholder="Enter listing Ghana Post GPS Code" />
-          </Form.Item>
+            placeholder="GPS Code"
+            value={formData.gpsCode}
+            onChange={handleChange}
+            style={{ marginBottom: "1rem" }}
+          />
         </>
       ),
     },
     {
-      title: "Other Information",
+      title: "Facilities",
       content: (
         <>
-          <Form.Item
-            name="propertyType"
-            label="Property Type"
-            rules={[{ required: true, message: "Please select a type!" }]}
+          <label style={{ display: "block", marginBottom: "0.5rem" }}>
+            Beds:
+          </label>
+          <InputNumber
+            min={1}
+            max={20}
+            value={formData.facilities.beds}
+            onChange={(value) => handleNumberChange("beds", value)}
+            style={{ marginBottom: "1rem" }}
+          />
+
+          <label style={{ display: "block", marginBottom: "0.5rem" }}>
+            Baths:
+          </label>
+          <InputNumber
+            min={1}
+            max={20}
+            value={formData.facilities.baths}
+            onChange={(value) => handleNumberChange("baths", value)}
+            style={{ marginBottom: "1rem" }}
+          />
+
+          <label style={{ display: "block", marginBottom: "0.5rem" }}>
+            Kitchen:
+          </label>
+          <InputNumber
+            min={1}
+            max={10}
+            value={formData.facilities.kitchen}
+            onChange={(value) => handleNumberChange("kitchen", value)}
+            style={{ marginBottom: "1rem" }}
+          />
+
+          <label style={{ display: "block", marginBottom: "0.5rem" }}>
+            Parking:
+          </label>
+          <InputNumber
+            min={0}
+            max={10}
+            value={formData.facilities.parking}
+            onChange={(value) => handleNumberChange("parking", value)}
+            style={{ marginBottom: "1rem" }}
+          />
+        </>
+      ),
+    },
+    {
+      title: "Listing Type",
+      content: (
+        <>
+          <Select
+            value={formData.propertyType}
+            onChange={(value) =>
+              setFormData({ ...formData, propertyType: value })
+            }
+            style={{ marginBottom: "1rem", width: "100%" }}
           >
-            <Select placeholder="Select property type">
-              <Option value="house">House</Option>
-              <Option value="room">Room</Option>
-              <Option value="apartment">Apartment</Option>
-              <Option value="land">Plot</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item
-            name="tenureType"
-            label="Tenure Type"
-            rules={[
-              { required: true, message: "Please select a tenure type!" },
-            ]}
+            <Option value="house">House</Option>
+            <Option value="room">Room</Option>
+            <Option value="apartment">Apartment</Option>
+            <Option value="store">Store</Option>
+            <Option value="office">Office</Option>
+            <Option value="land">Plot</Option>
+          </Select>
+          <Select
+            value={formData.tenureType}
+            onChange={(value) =>
+              setFormData({ ...formData, tenureType: value })
+            }
+            style={{ marginBottom: "1rem", width: "100%" }}
           >
-            <Select placeholder="Select tenure type">
-              <Option value="rent">Rent</Option>
-              <Option value="sale">Sale</Option>
-            </Select>
-          </Form.Item>
+            <Option value="rent">Rent</Option>
+            <Option value="sale">Sale</Option>
+          </Select>
         </>
       ),
     },
@@ -112,153 +348,82 @@ function CreateListing({ opened, setOpened }) {
       title: "Upload Files",
       content: (
         <>
-          {/* Upload Images */}
-          <Form.Item
-            name="images"
-            label="Upload Images"
-            rules={[
-              {
-                required: true,
-                message:
-                  "Please upload at least one image and max (10 images)!",
-              },
-            ]}
-            valuePropName="fileList"
-            getValueFromEvent={(e) => e.fileList}
+          <Upload
+            listType="picture-card"
+            multiple
+            fileList={formData.images}
+            onChange={(info) => handleFileChange("images", info)}
+            beforeUpload={() => false} // Prevent default upload behavior
+            style={{ marginBottom: "1rem" }}
           >
-            <Upload
-              listType="picture-card"
-              multiple
-              beforeUpload={(file) => {
-                const isImage = file.type.startsWith("image/");
-                if (!isImage) {
-                  message.error("You can only upload image files!");
-                }
-                return isImage || Upload.LIST_IGNORE;
-              }}
-            >
-              <Button
-                icon={<UploadOutlined />}
-                style={{ marginTop: "10rem", marginLeft: "3.5rem" }}
-              >
-                Upload Images
+            {formData.images.length < 10 && (
+              <Button icon={<UploadOutlined />}>Upload Images</Button>
+            )}
+          </Upload>
+
+          <Upload
+            multiple
+            fileList={formData.documentations} // ✅ Correct field name
+            onChange={(info) => handleFileChange("documentations", info)} // ✅ Correct field name
+            beforeUpload={() => false}
+            style={{ marginBottom: "1rem" }}
+          >
+            {formData.documentations.length < 10 && ( // ✅ Correct field name
+              <Button icon={<UploadOutlined />}>
+                Upload Files (Images/PDFs)
               </Button>
-            </Upload>
-          </Form.Item>
-
-          {/* Upload Documents */}
-          <Form.Item
-            name="documents"
-            label="Upload property documents (Images or PDFs)"
-            rules={[
-              {
-                required: true,
-                message:
-                  "Please upload at least one file or (max of 10 files)!",
-              },
-            ]}
-            valuePropName="fileList"
-            getValueFromEvent={(e) => e.fileList}
-            style={{ marginTop: "4rem" }}
-          >
-            <Upload
-              multiple
-              beforeUpload={(file) => {
-                const isImage = file.type.startsWith("image/");
-                const isPDF = file.type === "application/pdf";
-
-                if (!isImage && !isPDF) {
-                  message.error("You can only upload image or PDF files!");
-                  return Upload.LIST_IGNORE; // Ignore invalid files
-                }
-
-                return true; // Accept valid files
-              }}
-            >
-              <Button icon={<UploadOutlined />}>Upload Files</Button>
-            </Upload>
-          </Form.Item>
+            )}
+          </Upload>
         </>
       ),
     },
   ];
 
-  // Handle next step
-  const handleNext = () => {
-    form
-      .validateFields()
-      .then(() => {
-        setCurrentStep(currentStep + 1);
-      })
-      .catch((err) => {
-        console.log("Validation failed:", err);
-      });
-  };
-
-  // Handle previous step
-  const handlePrev = () => {
-    setCurrentStep(currentStep - 1);
-  };
-
-  // Handle form submission
-  const handleSubmit = () => {
-    form
-      .validateFields()
-      .then((values) => {
-        console.log("Form Values:", values); // Replace with your API call or logic
-        setOpened(false); // Close the modal
-        form.resetFields(); // Reset the form fields
-      })
-      .catch((err) => {
-        console.log("Validation failed:", err);
-      });
-  };
-
   return (
-    <>
-      <Modal
-        open={opened}
-        onCancel={() => setOpened(false)}
-        title="Create Listing"
-        width={"70%"}
-        footer={[
+    <Modal
+      open={opened}
+      onCancel={() => setOpened(false)}
+      title="Create Listing"
+      width="60%"
+      centered
+      footer={[
+        <Button key="cancel" onClick={() => setOpened(false)}>
+          Cancel
+        </Button>,
+        currentStep > 0 && (
+          <Button key="prev" onClick={handlePrev} disabled={currentStep === 0}>
+            Previous
+          </Button>
+        ),
+        currentStep < steps.length - 1 ? (
           <Button
-            key="key"
+            key="next"
             type="primary"
-            style={{ background: "red" }}
-            onClick={() => setOpened(false)}
+            onClick={handleNext}
+            disabled={!isCurrentStepValid()}
           >
-            Cancel
-          </Button>,
-          currentStep > 0 && (
-            <Button key="prev" onClick={handlePrev}>
-              Previous
-            </Button>
-          ),
-          currentStep < steps.length - 1 ? (
-            <Button key="next" type="primary" onClick={handleNext}>
-              Next
-            </Button>
-          ) : (
-            <Button key="submit" type="primary" onClick={handleSubmit}>
-              Add Property
-            </Button>
-          ),
-        ]}
-        centered
-      >
-        {/* Stepper */}
-        <Steps current={currentStep} style={{ marginBottom: "24px" }}>
-          {steps.map((step) => (
-            <Step key={step.title} title={step.title} />
-          ))}
-        </Steps>
-        {/* Form content */}
-        <Form form={form} layout="vertical">
-          {steps[currentStep].content}
-        </Form>
-      </Modal>
-    </>
+            Next
+          </Button>
+        ) : (
+          <Button
+            key="submit"
+            type="primary"
+            onClick={handleSubmit}
+            disabled={!isFormValid()}
+          >
+            Add Property
+          </Button>
+        ),
+      ]}
+      style={{ padding: ".5rem" }}
+    >
+      <Steps current={currentStep} style={{ marginBottom: "1rem" }}>
+        {steps.map((step) => (
+          <Step key={step.title} title={step.title} />
+        ))}
+      </Steps>
+      {steps[currentStep].content}
+    </Modal>
   );
 }
 

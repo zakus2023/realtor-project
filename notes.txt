@@ -391,6 +391,391 @@ BOOKING MODAL
 - Create a component called BookingModal in the components folder
 
 
+Step 1: Set Up a Cloudinary Account
+Go to Cloudinary and sign up.
+In the Cloudinary dashboard, find your Cloud Name, API Key, and API Secret under Account Settings.
+Step 2: Install Cloudinary SDK in Your Node.js Project
+Run the following command in your project directory:
+
+sh
+Copy
+Edit
+npm install cloudinary multer multer-storage-cloudinary dotenv
+cloudinary: Cloudinary SDK for image and document uploads.
+multer: Middleware for handling file uploads.
+multer-storage-cloudinary: Adapts Multer to store files directly in Cloudinary.
+dotenv: Loads environment variables from a .env file.
+Step 3: Configure Cloudinary in Your Project
+Create a .env File
+Add the following variables in your .env file:
+
+env
+Copy
+Edit
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+Create a cloudinary.js File
+Inside a config folder, create a file named cloudinary.js:
+
+javascript
+Copy
+Edit
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const multer = require("multer");
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "properties", // Cloudinary folder name
+    allowed_formats: ["jpg", "png", "jpeg", "pdf"],
+  },
+});
+
+const upload = multer({ storage });
+
+module.exports = { cloudinary, upload };
+Step 4: Modify Your API Route to Handle Uploads
+Update addProperty Route to Handle Cloudinary Uploads
+Modify your route handler to process file uploads before saving to the database.
+
+Backend - Upload Images and Documents
+Modify addProperty to handle image and document uploads:
+
+javascript
+Copy
+Edit
+const asyncHandler = require("express-async-handler");
+const { upload } = require("../config/cloudinary");
+const prisma = require("../prisma/client");
+
+const addProperty = asyncHandler(async (req, res) => {
+  upload.array("files", 10)(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ message: "File upload failed", error: err });
+    }
+
+    if (!req.body.data) {
+      return res.status(400).json({ message: "Invalid request payload." });
+    }
+
+    const {
+      title,
+      description,
+      price,
+      Region,
+      address,
+      city,
+      country,
+      gpsCode,
+      propertyType,
+      tenureType,
+      facilities,
+      userEmail,
+    } = JSON.parse(req.body.data); // Parse JSON data
+
+    if (!title || !description || !price || !address || !city || !Region || !country || !gpsCode || !propertyType || !tenureType || !userEmail) {
+      return res.status(400).json({ message: "All fields are required." });
+    }
+
+    // Separate image and document URLs
+    const images = req.files
+      .filter((file) => file.mimetype.startsWith("image/"))
+      .map((file) => file.path);
+
+    const documentations = req.files
+      .filter((file) => file.mimetype === "application/pdf")
+      .map((file) => file.path);
+
+    if (images.length < 1 || images.length > 10) {
+      return res.status(400).json({ message: "You must upload between 1 and 10 images." });
+    }
+
+    if (documentations.length < 1 || documentations.length > 10) {
+      return res.status(400).json({ message: "You must upload between 1 and 10 documents." });
+    }
+
+    try {
+      const residency = await prisma.residency.create({
+        data: {
+          title,
+          description,
+          price,
+          address,
+          city,
+          Region,
+          country,
+          gpsCode,
+          propertyType,
+          tenureType,
+          images,
+          documentations,
+          facilities,
+          owner: { connect: { email: userEmail } },
+        },
+      });
+
+      res.status(201).json({ message: "Property created successfully", residency });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create property", error: error.message });
+    }
+  });
+});
+
+module.exports = { addProperty };
+Step 5: Modify Frontend to Handle Cloudinary Uploads
+Convert File List to FormData
+Modify your handleSubmit function in CreateListing.js:
+
+javascript
+Copy
+Edit
+const handleSubmit = async () => {
+  if (!isFormValid()) {
+    message.error("Please fill all required fields.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("data", JSON.stringify({
+    title: formData.title,
+    description: formData.description,
+    price: Number(formData.price),
+    address: formData.address,
+    gpsCode: formData.gpsCode,
+    city: formData.city,
+    Region: formData.Region,
+    country: formData.country,
+    propertyType: formData.propertyType,
+    tenureType: formData.tenureType,
+    facilities: formData.facilities,
+    userEmail: user?.email,
+  }));
+
+  // Append images and documents
+  formData.images.forEach((file) => formData.append("files", file.originFileObj));
+  formData.documentations.forEach((file) => formData.append("files", file.originFileObj));
+
+  try {
+    const response = await api.post("/api/residence/addProperty", formData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    message.success("Property added successfully!");
+    setOpened(false);
+  } catch (error) {
+    message.error(`Failed to add property: ${error.message}`);
+  }
+};
+Step 6: Test File Uploads
+Start your backend server:
+sh
+Copy
+Edit
+npm run dev
+Open your frontend and try uploading images/documents.
+Check your Cloudinary account under the "properties" folder for uploaded files.
+Final Thoughts
+Security: Use Cloudinary's signed uploads for better security.
+Optimizations: Utilize Cloudinary transformations for image resizing, compression, and format conversion.
+Error Handling: Improve error handling to catch failed uploads.
+Let me know if you need further customizations! 🚀
+
+
+
+What is upload_preset?
+Cloudinary Upload Preset:
+
+An upload preset is a configuration in Cloudinary that defines default settings for file uploads.
+
+It allows you to specify settings like:
+
+The folder where files should be stored.
+
+Allowed file formats.
+
+Transformation rules (e.g., resizing, cropping).
+
+Whether the upload is signed or unsigned.
+
+Upload presets are created in the Cloudinary dashboard and can be reused across multiple uploads.
+
+Unsigned Uploads:
+
+Normally, Cloudinary requires a signature for uploads, which is generated using your api_secret.
+
+However, if you use an unsigned upload preset, you can upload files without generating a signature. This is useful for client-side uploads where you don't want to expose your api_secret.
+
+Where to Get the upload_preset
+Create an Upload Preset in Cloudinary:
+
+Go to your Cloudinary Dashboard.
+
+Navigate to Settings > Upload.
+
+Scroll down to the Upload presets section.
+
+Click Add upload preset.
+
+Configure the settings (e.g., folder, allowed formats, transformations).
+
+Give the preset a name (e.g., my_unsigned_preset).
+
+Set the Signing mode to Unsigned.
+
+Save the preset.
+
+Use the Upload Preset:
+
+Once created, you can use the preset name (e.g., my_unsigned_preset) in your code.
+
+
+ADD PROPERTY API ENDPOINT
+
+Okay, I need to create an addProperty API endpoint based on the provided Prisma schema and existing code structure. Let me start by understanding the requirements.
+
+First, looking at the Prisma schema, the Residency model has several fields. The User model relates to Residency via the ownedResidencies field. The addProperty endpoint should create a new Residency entry connected to a User via userEmail.
+
+The existing code uses asyncHandler and Prisma. So, I'll follow that pattern. The previous functions like getAllProperties and getResidence use prisma.residency.findMany and findUnique, so for creating, I'll use prisma.residency.create.
+
+The request body should include all necessary fields from the Residency model. Important fields are title, description, price, address, gpsCode, city, Region, country, images (array), documentations (array), facilities (JSON), userEmail, propertyType, tenureType. Also, status and propertyStatus have defaults, so they might not be required in the request.
+
+Validation is crucial. The backend must check that images and documentations are arrays with lengths 1-10. Also, check that required fields are present. If any validation fails, return a 400 error.
+
+Unique constraints in the Prisma schema are on address, userEmail, and gpsCode. If a duplicate is entered, Prisma will throw error code P2002, which needs to be caught and handled with a 409 Conflict response.
+
+I should structure the endpoint as an asyncHandler function. Extract data from req.body, validate, then attempt to create the residency. Handle any errors, especially Prisma errors, and send appropriate responses.
+
+Testing the endpoint, if the userEmail doesn't correspond to an existing User, Prisma's relation might cause an error. But the schema doesn't specify a foreign key constraint, so maybe it's allowed? Or perhaps check if the user exists first. The problem statement doesn't mention that, so perhaps proceed without checking, allowing Prisma to throw an error if the user isn't found.
+
+Now, putting it all together. Start by destructuring the required fields from req.body. Validate each required field. Check images and documentations arrays. Then use prisma.residency.create with the data, connecting the owner via userEmail.
+
+Handle the Prisma error for duplicates. Send success response with 201 status on success, or error messages otherwise.
+
+I should also ensure that the facilities field is parsed as JSON. Since the facilities field is of type Json in the model, the input should be a JSON object. The req.body should send facilities as a JSON object, which Express parses automatically if the middleware is set up (like express.json()). So no extra parsing is needed here.
+
+Finally, test cases: missing fields, invalid array lengths, duplicate entries, and successful creation. Make sure each case is handled correctly in the code.
+
+Here's the addProperty API endpoint based on your Prisma schema and existing code structure:
+
+javascript
+Copy
+// ============================================================
+// Create a new property
+export const addProperty = asyncHandler(async (req, res) => {
+  const {
+    title,
+    description,
+    price,
+    address,
+    gpsCode,
+    city,
+    Region,
+    country,
+    images,
+    documentations,
+    facilities,
+    userEmail,
+    propertyType,
+    tenureType,
+  } = req.body;
+
+  // Validate required fields
+  if (
+    !title ||
+    !description ||
+    !price ||
+    !address ||
+    !gpsCode ||
+    !city ||
+    !Region ||
+    !country ||
+    !userEmail ||
+    !propertyType ||
+    !tenureType
+  ) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
+
+  // Validate images array
+  if (!Array.isArray(images) || images.length < 1 || images.length > 10) {
+    return res.status(400).json({
+      message: "You must upload at least 1 image and at most 10 images.",
+    });
+  }
+
+  // Validate documentations array
+  if (
+    !Array.isArray(documentations) ||
+    documentations.length < 1 ||
+    documentations.length > 10
+  ) {
+    return res.status(400).json({
+      message:
+        "You must upload at least 1 document and at most 10 documents.",
+    });
+  }
+
+  try {
+    // Create new residency
+    const residency = await prisma.residency.create({
+      data: {
+        title,
+        description,
+        price: parseInt(price),
+        address,
+        gpsCode,
+        city,
+        Region,
+        country,
+        images,
+        documentations,
+        facilities,
+        propertyType,
+        tenureType,
+        owner: { connect: { email: userEmail } },
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Property created successfully",
+      residency,
+    });
+    
+  } catch (error) {
+    if (error.code === "P2002") {
+      return res.status(409).json({
+        success: false,
+        message: "A property with this address and GPS code already exists for this user",
+      });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      return res.status(400).json({
+        success: false,
+        message: "Database error",
+        error: error.meta,
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+});
+
+
+
+
+
 
 
    

@@ -1,5 +1,5 @@
 import express from 'express'
-import { addProperty, getAllProperties, getResidence } from '../controllers/residenceController.js'
+import {addProperty, getAllProperties, getResidence } from '../controllers/residenceController.js'
 import jwtCheck from '../config/auth0Config.js'
 
 const router = express.Router()

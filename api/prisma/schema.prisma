@@ -27,9 +27,9 @@ model Residency {
     description  String
     price        Int
     address      String
-    gpsCode      String   @default("GT 560 AB0252")
+    gpsCode      String
     city         String
-    Region       String   @default("Greater Accra")
+    Region       String
     country      String
     images       String[] // Changed from String to String[]
     documentations String[]
@@ -37,9 +37,9 @@ model Residency {
     userEmail    String
     status String @default("review") //published, review
     owner        User     @relation("Owner", fields: [userEmail], references: [email])
-    propertyType String   @default("house")
-    tenureType   String   @default("Sale")
-    propertyStatus String @default("published")
+    propertyType String
+    tenureType   String
+    propertyStatus String @default("Listed")
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
 

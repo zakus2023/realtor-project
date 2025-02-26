@@ -7,6 +7,9 @@ export const api = axios.create({
   baseURL: "http://localhost:5000", // Base URL for backend API requests
 });
 
+
+
+
 // fetch user details
 export const fetchUserDetails = async (email, token) => {
   try {
@@ -193,3 +196,26 @@ export const addToFavourites = async (resId, email, token) => {
 //     throw error; // Rethrow the error for handling elsewhere
 //   }
 // };
+
+
+// add property
+export const addPropertyApiCallFunction = async ({ payload, email, token }) => {
+  try {
+    // Add email to the payload
+    payload.email = email;
+
+    const response = await api.post("/api/residence/addProperty", payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json", // Send as JSON
+      },
+    });
+
+    toast.success("Property added successfully!");
+    return response.data;
+  } catch (error) {
+    console.error("Error adding property:", error);
+    toast.error(error.response?.data?.message || "Failed to add property");
+    throw error;
+  }
+};

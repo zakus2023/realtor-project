@@ -6,12 +6,12 @@ import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDTKt3mAF4dfbJZB6QX5sbuyUo7gQlhNNI",
-  authDomain: "aethersoft-realtors.firebaseapp.com",
-  projectId: "aethersoft-realtors",
-  storageBucket: "aethersoft-realtors.firebasestorage.app",
-  messagingSenderId: "671022340201",
-  appId: "1:671022340201:web:a3bc993dc9aeaa9b592af8"
+  apiKey: import.meta.env.FIREBASE_API_KEY,
+  authDomain: import.meta.env.FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.FIREBASE_MESSAGE_SENDER,
+  appId: import.meta.env.FIREBASE_APP_ID
 };
 
 // Initialize Firebase

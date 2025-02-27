@@ -1,13 +1,15 @@
-import express from 'express'
-import {addProperty, getAllProperties, getResidence } from '../controllers/residenceController.js'
-import jwtCheck from '../config/auth0Config.js'
+import express from 'express';
+import { addProperty, getAllProperties, getResidence } from '../controllers/residenceController.js';
+import jwtCheck from '../config/auth0Config.js';
 
-const router = express.Router()
 
-router.post("/addProperty", jwtCheck, addProperty)
+const router = express.Router();
 
-router.get("/fetchResidencies", getAllProperties)
+// Use multer middleware in your route
+router.post("/addProperty", jwtCheck, addProperty);
 
-router.get("/fetchResidence/:id", getResidence)
+router.get("/fetchResidencies", getAllProperties);
 
-export default router
+router.get("/fetchResidence/:id", getResidence);
+
+export default router;

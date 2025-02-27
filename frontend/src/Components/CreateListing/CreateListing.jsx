@@ -17,6 +17,8 @@ import { useMutation } from "react-query";
 import { useAuth0 } from "@auth0/auth0-react";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { addPropertyApiCallFunction } from "../../utils/api";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from '../../utils/firebase'
 
 const { Step } = Steps;
 const { Option } = Select;
@@ -62,7 +64,7 @@ function CreateListing({ opened, setOpened }) {
   const handleFileChange = (name, { fileList }) => {
     setFormData((prev) => ({
       ...prev,
-      [name]: [...fileList],
+      [name]: [...fileList], // Ensure fileList is updated correctly
     }));
   };
 
@@ -163,32 +165,51 @@ function CreateListing({ opened, setOpened }) {
       return;
     }
   
-    // Extract file names from images and documentations
-    const imageNames = formData.images.map((image) => image.name);
-    const documentationNames = formData.documentations.map((doc) => doc.name);
+    try {
+      // Upload images to Firebase
+      const imageUrls = await Promise.all(
+        formData.images.map(async (image) => {
+          const storageRef = ref(storage, `images/${image.name}`);
+          await uploadBytes(storageRef, image.originFileObj); // Upload the file
+          return getDownloadURL(storageRef); // Get the download URL
+        })
+      );
   
-    // Construct the payload
-    const payload = {
-      title: formData.title,
-      description: formData.description,
-      price: formData.price,
-      address: formData.address,
-      city: formData.city,
-      country: formData.country,
-      gpsCode: formData.gpsCode,
-      propertyType: formData.propertyType,
-      tenureType: formData.tenureType,
-      facilities: formData.facilities || [], // Ensure it's an array
-      userEmail: user?.email, // Ensure user is defined
-      Region: formData.Region, // Ensure Region is included
-      images: imageNames, // Array of image names
-      documentations: documentationNames, // Array of document names
-    };
+      // Upload documentations to Firebase
+      const documentationUrls = await Promise.all(
+        formData.documentations.map(async (doc) => {
+          const storageRef = ref(storage, `documents/${doc.name}`);
+          await uploadBytes(storageRef, doc.originFileObj); // Upload the file
+          return getDownloadURL(storageRef); // Get the download URL
+        })
+      );
   
-    console.log("Submitting Payload:", payload); // Debugging
+      // Construct the payload with Firebase URLs
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        price: formData.price,
+        address: formData.address,
+        city: formData.city,
+        country: formData.country,
+        gpsCode: formData.gpsCode,
+        propertyType: formData.propertyType,
+        tenureType: formData.tenureType,
+        facilities: formData.facilities || [],
+        userEmail: user?.email,
+        Region: formData.Region,
+        images: imageUrls, // Array of image URLs from Firebase
+        documentations: documentationUrls, // Array of document URLs from Firebase
+      };
   
-    // Call mutate with the JSON payload
-    mutate(payload);
+      console.log("Submitting Payload:", payload); // Debugging
+  
+      // Call mutate with the JSON payload
+      mutate(payload);
+    } catch (error) {
+      console.error("Error uploading files or submitting form:", error);
+      message.error("Failed to upload files or submit form.");
+    }
   };
 
   const steps = [

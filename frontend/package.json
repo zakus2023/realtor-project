@@ -17,6 +17,7 @@
     "axios": "^1.7.9",
     "dayjs": "^1.11.13",
     "esri-leaflet-geocoder": "2.3.3",
+    "firebase": "^11.4.0",
     "framer-motion": "^10.8.5",
     "leaflet": "^1.9.4",
     "lodash": "^4.17.21",

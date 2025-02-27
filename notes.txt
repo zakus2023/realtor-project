@@ -772,6 +772,135 @@ export const addProperty = asyncHandler(async (req, res) => {
   }
 });
 
+CORRECT FIX FOR UPLOADING FILES TO FIREBASE
+It looks like you've integrated Firebase Storage into your CreateListing component, but you're seeing a warning or error that getStorage is not used. This is because getStorage is used to initialize Firebase Storage, but it doesn't need to be explicitly used in your component after initialization. Instead, you're using the storage object directly, which is correct.
+
+Let me clarify the steps and ensure everything is set up properly:
+
+Step 1: Firebase Initialization
+You've already initialized Firebase Storage in a separate file (firebase.js) and exported the storage object. This is correct. For example:
+
+firebase.js
+javascript
+Copy
+import { initializeApp } from "firebase/app";
+import { getStorage } from "firebase/storage";
+
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID",
+};
+
+const app = initializeApp(firebaseConfig);
+const storage = getStorage(app); // Initialize Firebase Storage
+
+export { storage };
+Step 2: Using storage in Your Component
+In your CreateListing component, you're importing the storage object and using it to upload files. This is correct. For example:
+
+CreateListing.js
+javascript
+Copy
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from '../../utils/firebase'; // Adjust the path to your firebase.js file
+Here, storage is used in the handleSubmit function to upload files:
+
+javascript
+Copy
+const handleSubmit = async () => {
+  if (!formData) {
+    console.error("formData is undefined");
+    return;
+  }
+
+  try {
+    // Upload images to Firebase
+    const imageUrls = await Promise.all(
+      formData.images.map(async (image) => {
+        const storageRef = ref(storage, `images/${image.name}`); // Use storage here
+        await uploadBytes(storageRef, image.originFileObj); // Upload the file
+        return getDownloadURL(storageRef); // Get the download URL
+      })
+    );
+
+    // Upload documentations to Firebase
+    const documentationUrls = await Promise.all(
+      formData.documentations.map(async (doc) => {
+        const storageRef = ref(storage, `documents/${doc.name}`); // Use storage here
+        await uploadBytes(storageRef, doc.originFileObj); // Upload the file
+        return getDownloadURL(storageRef); // Get the download URL
+      })
+    );
+
+    // Construct the payload with Firebase URLs
+    const payload = {
+      title: formData.title,
+      description: formData.description,
+      price: formData.price,
+      address: formData.address,
+      city: formData.city,
+      country: formData.country,
+      gpsCode: formData.gpsCode,
+      propertyType: formData.propertyType,
+      tenureType: formData.tenureType,
+      facilities: formData.facilities || [],
+      userEmail: user?.email,
+      Region: formData.Region,
+      images: imageUrls, // Array of image URLs from Firebase
+      documentations: documentationUrls, // Array of document URLs from Firebase
+    };
+
+    console.log("Submitting Payload:", payload); // Debugging
+
+    // Call mutate with the JSON payload
+    mutate(payload);
+  } catch (error) {
+    console.error("Error uploading files or submitting form:", error);
+    message.error("Failed to upload files or submit form.");
+  }
+};
+Step 3: Why getStorage is Not Used Directly
+The getStorage function is used to initialize Firebase Storage in your firebase.js file. Once initialized, you don't need to use getStorage again in your component. Instead, you use the storage object directly, which is already initialized.
+
+For example:
+
+getStorage is used in firebase.js to initialize the storage object.
+
+In your component, you import the storage object and use it with ref, uploadBytes, and getDownloadURL.
+
+Step 4: Fixing the Warning
+If you're seeing a warning that getStorage is not used, it's because you imported it in your component but didn't use it directly. You can safely remove the getStorage import from your component since it's already used in firebase.js.
+
+Remove This Line:
+javascript
+Copy
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+Replace With:
+javascript
+Copy
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+Step 5: Final Code
+Here’s the updated CreateListing.js without the unnecessary getStorage import:
+
+javascript
+Copy
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from '../../utils/firebase'; // Adjust the path to your firebase.js file
+Summary
+getStorage is used in firebase.js to initialize Firebase Storage.
+
+In your component, you only need to import and use the storage object, along with ref, uploadBytes, and getDownloadURL.
+
+Remove the getStorage import from your component to fix the warning.
+
+This setup ensures that Firebase Storage is properly initialized and used in your application. Let me know if you have further questions!
+
+New chat
+
 
 
 

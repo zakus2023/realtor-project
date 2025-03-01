@@ -1,16 +1,21 @@
-import express from 'express';
-import { addProperty, getAllProperties, getResidence } from '../controllers/residenceController.js';
-import jwtCheck from '../config/auth0Config.js';
-
+import express from "express";
+import {
+  addProperty,
+  getAllProperties,
+  getResidence,
+} from "../controllers/residenceController.js";
+import jwtCheck from "../config/auth0Config.js";
+import multer from "multer"; // Import multer
 
 const router = express.Router();
 
-// Use multer middleware in your route
-router.post("/addProperty", jwtCheck, addProperty);
+// Configure multer for file uploads
+const storage = multer.memoryStorage(); // Store files in memory as buffers
+const upload = multer({ storage }); // Initialize multer with the storage configuration
 
-
-router.get("/fetchResidencies", getAllProperties);
-
-router.get("/fetchResidence/:id", getResidence);
+// Routes
+router.post("/addProperty", upload.any(), jwtCheck, addProperty); // Add property with file uploads and JWT authentication
+router.get("/fetchResidencies", getAllProperties); // Fetch all properties
+router.get("/fetchResidence/:id", getResidence); // Fetch a single property by ID
 
 export default router;

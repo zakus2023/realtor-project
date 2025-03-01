@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 
+
 // Import routes
 import userRoute from "./routes/userRoute.js";
 import residenceRouter from "./routes/residenceRoute.js";

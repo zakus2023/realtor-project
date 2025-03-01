@@ -1,11 +1,9 @@
 import ImageKit from "imagekit";
 
 const imagekit = new ImageKit({
-  publicKey: "public_vP03kKuO/cNqdZtbGP8emOr7oYw=",  // Replace with your ImageKit Public API Key
-  privateKey: "private_dNaDI3BwGhqYpdBSB1CAce5uRYc=",
-  urlEndpoint: "https://ik.imagekit.io/yds4mej8p", // Replace with your ImageKit URL Endpoint
-  authenticationEndpoint: "https://localhost:5000", // Replace with your backend endpoint for authentication
+  publicKey: import.meta.env.VITE_IMAGEKIT_PUBLIC_KEY, // Replace with your ImageKit Public API Key
+  urlEndpoint: import.meta.env.VITE_IMAGEKIT_URL_ENDPOINT, // Replace with your ImageKit URL Endpoint
+  authenticationEndpoint: import.meta.env.VITE_IMAGEKIT_BACKEND_API, // Replace with your backend endpoint for authentication
 });
 
 export default imagekit;
-

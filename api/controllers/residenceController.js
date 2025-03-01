@@ -1,106 +1,70 @@
 import asyncHandler from "express-async-handler";
 import { prisma } from "../config/prismaConfig.js";
+import dotenv from "dotenv";
+import multer from "multer";
+import ImageKit from "imagekit";
 
-import ImageKit from 'imagekit'
-import dotenv from 'dotenv'
-
-dotenv.config()
-
+dotenv.config();
 
 // ============================================================
 // add Property api endpoint
 // ============================================================
 
 // addProperty.js
+// Initialize ImageKit
+const imagekit = new ImageKit({
+  publicKey: "public_vP03kKuO/cNqdZtbGP8emOr7oYw=",
+  privateKey: "private_dNaDI3BwGhqYpdBSB1CAce5uRYc=",
+  urlEndpoint: "https://ik.imagekit.io/yds4mej8p",
+});
 
+// Set up multer for file uploads
+const storage = multer.memoryStorage(); // Store files in memory as buffers
+//const upload = multer({ storage });
+
+// Export the addProperty function
 export const addProperty = asyncHandler(async (req, res) => {
-  const {
-    title,
-    description,
-    price,
-    address,
-    gpsCode,
-    city,
-    Region,
-    country,
-    images,
-    documentations,
-    facilities,
-    userEmail,
-    propertyType,
-    tenureType,
-  } = req.body;
-  console.log(req.body)
-
-  // Validate required fields
-  if (
-    !title ||
-    !description ||
-    !price ||
-    !address ||
-    !gpsCode ||
-    !city ||
-    !Region ||
-    !country ||
-    !userEmail ||
-    !propertyType ||
-    !tenureType
-  ) {
-    return res.status(400).json({ message: "All fields are required" });
-  }
-
-  // Validate images array
-  if (!Array.isArray(images) || images.length < 1 || images.length > 10) {
-    return res.status(400).json({
-      message: "You must upload at least 1 image and at most 10 images.",
-    });
-  }
-
-  // Validate documentations array
-  if (
-    !Array.isArray(documentations) ||
-    documentations.length < 1 ||
-    documentations.length > 10
-  ) {
-    return res.status(400).json({
-      message: "You must upload at least 1 document and at most 10 documents.",
-    });
-  }
-
-  // Validate price is a positive number
-  if (isNaN(price) || Number(price) <= 0) {
-    return res
-      .status(400)
-      .json({ message: "Price must be a valid positive number." });
-  }
-
-  // Validate GPS code format (example: GA-123-456)
-  const gpsCodeRegex = /^[A-Z]{2}-\d{3}-\d{3}$/;
-  if (!gpsCodeRegex.test(gpsCode)) {
-    return res
-      .status(400)
-      .json({
-        message: "Invalid GPS code format. Expected format: GA-123-456",
-      });
-  }
-
   try {
-    // Check if a property with the same address and GPS code already exists for this user
-    const existingProperty = await prisma.residency.findFirst({
-      where: {
-        address,
-        gpsCode,
-        owner: { email: userEmail },
-      },
+    const {
+      title,
+      description,
+      price,
+      address,
+      city,
+      Region,
+      country,
+      gpsCode,
+      propertyType,
+      tenureType,
+      facilities,
+      imagesCount, // Number of image files (to separate images and documents)
+      email, // Email from the frontend
+    } = req.body;
+
+    const files = req.files; // Access uploaded files
+
+    // Check if files are uploaded
+    if (!files || files.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No files uploaded." });
+    }
+
+    // Upload files to ImageKit
+    const uploadPromises = files.map((file) => {
+      return imagekit.upload({
+        file: file.buffer, // File buffer from multer
+        fileName: file.originalname, // Original file name
+        folder: "/property-files", // Folder in ImageKit
+      });
     });
 
-    if (existingProperty) {
-      return res.status(409).json({
-        success: false,
-        message:
-          "A property with this address and GPS code already exists for this user.",
-      });
-    }
+    const results = await Promise.all(uploadPromises);
+    const fileUrls = results.map((result) => result.url);
+
+    // Separate image and document URLs
+    const imageUrls = fileUrls.slice(0, parseInt(imagesCount, 10));
+    const documentationUrls = fileUrls.slice(parseInt(imagesCount, 10));
 
     // Create new residency
     const residency = await prisma.residency.create({
@@ -113,12 +77,12 @@ export const addProperty = asyncHandler(async (req, res) => {
         city,
         Region,
         country,
-        images,
-        documentations,
+        images:imageUrls,
+        documentations: documentationUrls,
         facilities: facilities || [], // Default to empty array if not provided
         propertyType,
         tenureType,
-        owner: { connect: { email: userEmail } },
+        owner: { connect: { email: email } },
       },
     });
 
@@ -128,31 +92,10 @@ export const addProperty = asyncHandler(async (req, res) => {
       residency,
     });
   } catch (error) {
-    console.error("Error creating property:", error);
-
-    // Handle Prisma errors
-    if (error.code === "P2002") {
-      return res.status(409).json({
-        success: false,
-        message:
-          "A property with this address and GPS code already exists for this user.",
-      });
-    }
-
-    if (error instanceof PrismaClient.PrismaClientKnownRequestError) {
-      return res.status(400).json({
-        success: false,
-        message: "Database error",
-        error: error.meta,
-      });
-    }
-
-    // Handle other errors
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message,
-    });
+    console.error("Error adding property:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to add property." });
   }
 });
 

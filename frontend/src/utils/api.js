@@ -201,13 +201,33 @@ export const addToFavourites = async (resId, email, token) => {
 // add property
 export const addPropertyApiCallFunction = async ({ payload, email, token }) => {
   try {
-    // Add email to the payload
-    payload.email = email;
+    // Create a FormData object
+    const formData = new FormData();
 
-    const response = await api.post("/api/residence/addProperty", payload, {
+    // Append form fields to FormData
+    for (const key in payload) {
+      if (key === "facilities") {
+        // Convert facilities object to a JSON string
+        formData.append(key, JSON.stringify(payload[key]));
+      } else if (key === "images" || key === "documentations") {
+        // Append files
+        payload[key].forEach((file) => {
+          formData.append(key, file.originFileObj); // Append the file object
+        });
+      } else {
+        // Append other fields
+        formData.append(key, payload[key]);
+      }
+    }
+
+    // Append email to the FormData
+    formData.append("email", email);
+
+    // Send the request with FormData
+    const response = await api.post("/api/residence/addProperty", formData, {
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json", // Send as JSON
+        "Content-Type": "multipart/form-data", // Use multipart/form-data for file uploads
       },
     });
 

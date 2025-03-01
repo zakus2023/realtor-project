@@ -13,11 +13,9 @@ import "antd/dist/reset.css";
 import React, { useContext, useState } from "react";
 import "./CreateListing.css";
 import { useMutation } from "react-query";
-
 import { useAuth0 } from "@auth0/auth0-react";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { addPropertyApiCallFunction } from "../../utils/api";
-import imagekit from "../../utils/imagekit";
 import { Spin } from "antd";
 
 const { Step } = Steps;
@@ -29,7 +27,6 @@ function CreateListing({ opened, setOpened }) {
   const token = userDetails.token;
 
   const [currentStep, setCurrentStep] = useState(0);
-
   const [uploading, setUploading] = useState(false); // For file uploads
   const [submitting, setSubmitting] = useState(false); // For form submission
 
@@ -130,8 +127,8 @@ function CreateListing({ opened, setOpened }) {
 
   // Mutation for adding property
   const { mutate, isLoading } = useMutation(
-    (payload) =>
-      addPropertyApiCallFunction({ payload, email: user?.email, token }),
+    ({ payload, email, token }) =>
+      addPropertyApiCallFunction({ payload, email, token }),
     {
       onSuccess: () => {
         message.success("Property added successfully!");
@@ -173,59 +170,26 @@ function CreateListing({ opened, setOpened }) {
     try {
       setUploading(true); // Start loading
 
-      // Upload images to ImageKit
-      const imageUploadPromises = formData.images.map(async (image) => {
-        const file = image.originFileObj;
-        const response = await imagekit.upload({
-          file,
-          fileName: file.name,
-          folder: "/property-images",
-        });
-        return response.url;
-      });
-
-      // Upload documents to ImageKit
-      const docUploadPromises = formData.documentations.map(async (doc) => {
-        const file = doc.originFileObj;
-        const response = await imagekit.upload({
-          file,
-          fileName: file.name,
-          folder: "/property-docs",
-        });
-        return response.url;
-      });
-
-      // Wait for all uploads to complete
-      const imageUrls = await Promise.all(imageUploadPromises);
-      const documentationUrls = await Promise.all(docUploadPromises);
-
-      setUploading(false); // Stop loading
-
-      // Construct payload
+      // Construct the payload
       const payload = {
         title: formData.title,
         description: formData.description,
         price: formData.price,
         address: formData.address,
         city: formData.city,
+        Region: formData.Region,
         country: formData.country,
         gpsCode: formData.gpsCode,
         propertyType: formData.propertyType,
         tenureType: formData.tenureType,
-        facilities: formData.facilities || [],
-        userEmail: user?.email,
-        Region: formData.Region,
-        images: imageUrls,
-        documentations: documentationUrls,
+        facilities: formData.facilities,
+        images: formData.images,
+        documentations: formData.documentations,
+        imagesCount: formData.images.length, // Number of image files
       };
 
-      console.log("Submitting Payload:", payload);
-
-      // Set submitting state before API call
-      setSubmitting(true);
-      mutate(payload, {
-        onSettled: () => setSubmitting(false), // Stop loading when done
-      });
+      // Call the API function using useMutation
+      mutate({ payload, email: user?.email, token });
     } catch (error) {
       setUploading(false);
       setSubmitting(false);
@@ -388,36 +352,40 @@ function CreateListing({ opened, setOpened }) {
       ),
     },
     {
-  title: "Upload Files",
-  content: (
-    <>
-      {uploading && <Spin size="large" style={{ display: "block", marginBottom: "1rem" }} />}
-      <Upload
-        listType="picture-card"
-        multiple
-        fileList={formData.images}
-        onChange={(info) => handleFileChange("images", info)}
-        beforeUpload={() => false} // Prevent default upload behavior
-      >
-        {formData.images.length < 10 && (
-          <Button icon={<UploadOutlined />}>Upload Images</Button>
-        )}
-      </Upload>
+      title: "Upload Files",
+      content: (
+        <>
+          {uploading && (
+            <Spin
+              size="large"
+              style={{ display: "block", marginBottom: "1rem" }}
+            />
+          )}
+          <Upload
+            listType="picture-card"
+            multiple
+            fileList={formData.images}
+            onChange={(info) => handleFileChange("images", info)}
+            beforeUpload={() => false} // Prevent default upload behavior
+          >
+            {formData.images.length < 10 && (
+              <Button icon={<UploadOutlined />}>Upload Images</Button>
+            )}
+          </Upload>
 
-      <Upload
-        multiple
-        fileList={formData.documentations}
-        onChange={(info) => handleFileChange("documentations", info)}
-        beforeUpload={() => false}
-      >
-        {formData.documentations.length < 10 && (
-          <Button icon={<UploadOutlined />}>Upload Files (PDFs)</Button>
-        )}
-      </Upload>
-    </>
-  ),
-},
-
+          <Upload
+            multiple
+            fileList={formData.documentations}
+            onChange={(info) => handleFileChange("documentations", info)}
+            beforeUpload={() => false}
+          >
+            {formData.documentations.length < 10 && (
+              <Button icon={<UploadOutlined />}>Upload Files (PDFs)</Button>
+            )}
+          </Upload>
+        </>
+      ),
+    },
   ];
 
   return (

@@ -13,9 +13,11 @@ import "antd/dist/reset.css";
 import React, { useContext, useState } from "react";
 import "./CreateListing.css";
 import { useMutation } from "react-query";
-import { addPropertyApi } from "../../utils/api";
 import { useAuth0 } from "@auth0/auth0-react";
 import UserDetailsContext from "../../context/UserDetailsContext";
+import { addPropertyApiCallFunction } from "../../utils/api";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from '../../utils/firebase';
 
 const { Step } = Steps;
 const { Option } = Select;
@@ -47,6 +49,8 @@ function CreateListing({ opened, setOpened }) {
     },
   });
 
+  const [loading, setLoading] = useState(false);
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -66,45 +70,47 @@ function CreateListing({ opened, setOpened }) {
   };
 
   const handleNext = () => {
-    setCurrentStep(currentStep + 1);
+    if (isCurrentStepValid()) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      message.error("Please fill out all required fields before proceeding.");
+    }
   };
 
   const handlePrev = () => {
     setCurrentStep(currentStep - 1);
   };
 
-  // Check if the current step's fields are filled
   const isCurrentStepValid = () => {
     switch (currentStep) {
-      case 0: // Basic Information
+      case 0:
         return (
           formData.title.trim() !== "" &&
           formData.description.trim() !== "" &&
           formData.price.trim() !== ""
         );
-      case 1: // Address and Location
+      case 1:
         return (
           formData.address.trim() !== "" &&
           formData.Region.trim() !== "" &&
           formData.city.trim() !== "" &&
           formData.country.trim() !== ""
         );
-      case 2: // Facilities
+      case 2:
         return (
           formData.facilities.beds > 0 &&
           formData.facilities.baths > 0 &&
           formData.facilities.kitchen > 0
         );
-      case 3: // Other Information
+      case 3:
         return formData.propertyType !== "" && formData.tenureType !== "";
-      case 4: // Upload Files
+      case 4:
         return formData.images.length > 0 && formData.documentations.length > 0;
       default:
         return false;
     }
   };
 
-  // Check if all fields in the form are filled
   const isFormValid = () => {
     return (
       formData.title.trim() !== "" &&
@@ -121,9 +127,8 @@ function CreateListing({ opened, setOpened }) {
     );
   };
 
-  // Mutation for adding property
   const { mutate, isLoading } = useMutation(
-    (propertyData) => addPropertyApi(propertyData, user?.email, token),
+    (payload) => addPropertyApiCallFunction({ payload, email: user?.email, token }),
     {
       onSuccess: () => {
         message.success("Property added successfully!");
@@ -155,19 +160,32 @@ function CreateListing({ opened, setOpened }) {
     }
   );
 
-  // Handle form submit
   const handleSubmit = async () => {
-    if (!formData) {
-      console.error("formData is undefined");
+    if (!isFormValid()) {
+      message.error("Please fill out all required fields.");
       return;
     }
 
-    const payload = new FormData();
+    setLoading(true);
 
-    // Append JSON data as a string
-    payload.append(
-      "data",
-      JSON.stringify({
+    try {
+      const imageUrls = await Promise.all(
+        formData.images.map(async (image) => {
+          const storageRef = ref(storage, `images/${image.name}`);
+          await uploadBytes(storageRef, image.originFileObj);
+          return getDownloadURL(storageRef);
+        })
+      );
+
+      const documentationUrls = await Promise.all(
+        formData.documentations.map(async (doc) => {
+          const storageRef = ref(storage, `documents/${doc.name}`);
+          await uploadBytes(storageRef, doc.originFileObj);
+          return getDownloadURL(storageRef);
+        })
+      );
+
+      const payload = {
         title: formData.title,
         description: formData.description,
         price: formData.price,
@@ -177,39 +195,20 @@ function CreateListing({ opened, setOpened }) {
         gpsCode: formData.gpsCode,
         propertyType: formData.propertyType,
         tenureType: formData.tenureType,
-        facilities: formData.facilities || [], // Ensure it's an array
-        userEmail: user?.email, // Ensure user is defined
-        Region: formData.Region, // Ensure Region is included
-      })
-    );
+        facilities: formData.facilities,
+        userEmail: user?.email,
+        Region: formData.Region,
+        images: imageUrls,
+        documentations: documentationUrls,
+      };
 
-    // **Ensure images array is defined**
-    if (Array.isArray(formData.images)) {
-      formData.images.forEach((image) => {
-        if (image?.originFileObj) {
-          payload.append("files", image.originFileObj);
-        }
-      });
-    } else {
-      console.warn("formData.images is undefined or not an array");
+      mutate(payload);
+    } catch (error) {
+      console.error("Error uploading files or submitting form:", error);
+      message.error("Failed to upload files or submit form.");
+    } finally {
+      setLoading(false);
     }
-
-    // **Ensure documents array is defined**
-    if (Array.isArray(formData.documentations)) {
-      // ✅ Correct field name
-      formData.documentations.forEach((doc) => {
-        // ✅ Correct field name
-        if (doc?.originFileObj) {
-          payload.append("files", doc.originFileObj);
-        }
-      });
-    } else {
-      console.warn("formData.documentations is undefined or not an array"); // ✅ Correct field name
-    }
-
-    console.log("Submitting Payload:", Array.from(payload.entries())); // Debugging
-
-    mutate(payload);
   };
 
   const steps = [
@@ -374,7 +373,7 @@ function CreateListing({ opened, setOpened }) {
             multiple
             fileList={formData.images}
             onChange={(info) => handleFileChange("images", info)}
-            beforeUpload={() => false} // Prevent default upload behavior
+            beforeUpload={() => false}
             style={{ marginBottom: "1rem" }}
           >
             {formData.images.length < 10 && (
@@ -384,12 +383,12 @@ function CreateListing({ opened, setOpened }) {
 
           <Upload
             multiple
-            fileList={formData.documentations} // ✅ Correct field name
-            onChange={(info) => handleFileChange("documentations", info)} // ✅ Correct field name
+            fileList={formData.documentations}
+            onChange={(info) => handleFileChange("documentations", info)}
             beforeUpload={() => false}
             style={{ marginBottom: "1rem" }}
           >
-            {formData.documentations.length < 10 && ( // ✅ Correct field name
+            {formData.documentations.length < 10 && (
               <Button icon={<UploadOutlined />}>
                 Upload Files (Images/PDFs)
               </Button>
@@ -421,7 +420,7 @@ function CreateListing({ opened, setOpened }) {
             key="next"
             type="primary"
             onClick={handleNext}
-            disabled={!isCurrentStepValid()}
+            disabled={!isCurrentStepValid() || loading}
           >
             Next
           </Button>
@@ -430,7 +429,8 @@ function CreateListing({ opened, setOpened }) {
             key="submit"
             type="primary"
             onClick={handleSubmit}
-            disabled={!isFormValid()}
+            disabled={!isFormValid() || loading}
+            loading={loading}
           >
             Add Property
           </Button>
@@ -451,158 +451,34 @@ function CreateListing({ opened, setOpened }) {
 export default CreateListing;
 
 
-import cloudinary from 'cloudinary'
-import {CloudinaryStorage} from 'multer-storage-cloudinary'
-import multer from 'multer'
+
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyANqbAgg7WW3GzitRJj_HzOVZlBP_RAR3k",
+  authDomain: "aether-soft-realtor.firebaseapp.com",
+  projectId: "aether-soft-realtor",
+  storageBucket: "aether-soft-realtor.firebasestorage.app",
+  messagingSenderId: "1003426378616",
+  appId: "1:1003426378616:web:18555703f7bd756d27ce8d"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+export { storage };
 
 
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-
-  const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-      folder: "properties", // Cloudinary folder name
-      allowed_formats: ["jpg", "png", "jpeg", "pdf"],
-    },
-  });
-
-  const upload = multer({ storage });
-
-export {cloudinary, upload}
-
-
-
-export const addProperty = asyncHandler(async (req, res) => {
-  upload.array("files", 10)(req, res, async (err) => {
-    if (err) {
-      return res
-        .status(400)
-        .json({ message: "File upload failed", error: err });
-    }
-  });
-  if (!req.body.data) {
-    return res
-      .status(400)
-      .json({ message: "Invalid request payload. Expected 'data' object." });
-  }
-
-  const {
-    title,
-    description,
-    price,
-    Region,
-    address,
-    city,
-    country,
-    gpsCode,
-    propertyType,
-    tenureType,
-    facilities,
-    userEmail,
-  } = req.body.data;
-
-  if (
-    !title ||
-    !description ||
-    !price ||
-    !address ||
-    !city ||
-    !Region ||
-    !country ||
-    !gpsCode ||
-    !propertyType ||
-    !tenureType ||
-    !userEmail
-  ) {
-    return res.status(400).json({ message: "All fields are required." });
-  }
-
-  const images = req.files
-    .filter((file) => file.mimetype.startsWith("image/"))
-    .map((file) => file.path);
-
-  const documentations = req.files
-    .filter((file) => file.mimetype === "application/pdf")
-    .map((file) => file.path);
-
-  if (!Array.isArray(images) || images?.length < 1 || images.length > 10) {
-    return res
-      .status(400)
-      .json({ message: "You must upload between 1 and 10 images." });
-  }
-
-  try {
-    const residency = await prisma.residency.create({
-      data: {
-        title,
-        description,
-        price,
-        address,
-        city,
-        Region,
-        country,
-        gpsCode,
-        propertyType,
-        tenureType,
-        images,
-        documentations,
-        facilities,
-        owner: { connect: { email: userEmail } },
-      },
-    });
-
-    res
-      .status(201)
-      .json({ message: "Property created successfully", residency });
-  } catch (error) {
-    if (error?.code === "P2002") {
-      return res
-        .status(400)
-        .json({ message: "A property with this address already exists." });
-    }
-    res
-      .status(500)
-      .json({ message: "Failed to create property", error: error.message });
-  }
-});
-
-
-<Upload
-              listType="picture-card"
-              multiple
-              beforeUpload={(file) => {
-                const isImage = file.type.startsWith("image/");
-                if (!isImage) {
-                  message.error("You can only upload image files!");
-                }
-                return isImage || Upload.LIST_IGNORE;
-              }}
-              onChange={({ fileList }) => handleFileChange("images", { fileList })}
-              fileList={formData.images}
-              style={{ display: "block", marginBottom: "16px" }}
-            >
-              <Button icon={<UploadOutlined />} style={{ marginTop: "8px" }}>
-                Upload Images
-              </Button>
-            </Upload>
-
-
-  // Handle file upload change
-  const handleFileChange = (name, { fileList }) => {
-    const validFiles = fileList.map((file) => {
-      // Ensure each file has the required properties
-      return {
-        ...file,
-        uid: file.uid || file.originFileObj?.uid || Date.now(), // Ensure a unique uid
-        name: file.name || file.originFileObj?.name || "file", // Ensure a name
-        status: file.status || "done", // Ensure a status
-        url: file.url || URL.createObjectURL(file.originFileObj || file), // Generate a URL for preview
-      };
-    });
-
-    setFormData({ ...formData, [name]: validFiles });
-  };
+// rules_version = '2';
+// service firebase.storage {
+//   match /b/{bucket}/o {
+//     match /{allPaths=**} {
+//       allow read, write: if request.resource.size < 10 * 1024 * 1024
+//                          && request.resource.contentType.matches('image/.*|application/pdf');
+//     }
+//   }
+// }

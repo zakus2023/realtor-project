@@ -1,6 +1,36 @@
 import asyncHandler from "express-async-handler";
 import { prisma } from "../config/prismaConfig.js";
-import { Prisma } from "@prisma/client";
+import ImageKit from "imagekit";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+// Initialize ImageKit with credentials from environment variables
+const imageKit = new ImageKit({
+  urlEndpoint: "https://ik.imagekit.io/yds4mej8p", // Base URL for ImageKit media assets
+  publicKey: "public_vP03kKuO/cNqdZtbGP8emOr7oYw=", // Public API key for ImageKit
+  privateKey: "private_dNaDI3BwGhqYpdBSB1CAce5uRYc=", // Private API key for secure ImageKit interactions
+});
+
+// Controller to generate ImageKit authentication parameters
+export const uploadAuth = async (req, res) => {
+  try {
+    // Call the function to generate authentication parameters
+    const result = imageKit.getAuthenticationParameters();
+    
+    // Log the result to verify it's working
+    console.log("result: ", result);
+    
+    // Send the authentication parameters in the response
+    res.status(200).json(result);
+  } catch (error) {
+    // Handle any errors
+    res.status(500).json({
+      message: "Failed to generate auth parameters",
+      error: error.message,
+    });
+  }
+};
 
 // ============================================================
 // add Property api endpoint
@@ -25,7 +55,7 @@ export const addProperty = asyncHandler(async (req, res) => {
     propertyType,
     tenureType,
   } = req.body;
-  console.log(req.body)
+  console.log(req.body);
 
   // Validate required fields
   if (
@@ -72,11 +102,9 @@ export const addProperty = asyncHandler(async (req, res) => {
   // Validate GPS code format (example: GA-123-456)
   const gpsCodeRegex = /^[A-Z]{2}-\d{3}-\d{3}$/;
   if (!gpsCodeRegex.test(gpsCode)) {
-    return res
-      .status(400)
-      .json({
-        message: "Invalid GPS code format. Expected format: GA-123-456",
-      });
+    return res.status(400).json({
+      message: "Invalid GPS code format. Expected format: GA-123-456",
+    });
   }
 
   try {

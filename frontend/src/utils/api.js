@@ -239,3 +239,45 @@ export const addPropertyApiCallFunction = async ({ payload, email, token }) => {
     throw error;
   }
 };
+
+// edit property
+export const editPropertyApiCallFunction = async ({ id, payload, email, token }) => {
+  try {
+    // Create a FormData object
+    const formData = new FormData();
+
+    // Append form fields to FormData
+    for (const key in payload) {
+      if (key === "facilities") {
+        // Convert facilities object to a JSON string
+        formData.append(key, JSON.stringify(payload[key]));
+      } else if (key === "images" || key === "documentations") {
+        // Append files
+        payload[key].forEach((file) => {
+          formData.append(key, file.originFileObj); // Append the file object
+        });
+      } else {
+        // Append other fields
+        formData.append(key, payload[key]);
+      }
+    }
+
+    // Append email to the FormData
+    formData.append("email", email);
+
+    // Send the request with FormData
+    const response = await api.put(`/api/residence/editProperty/${id}`, formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "multipart/form-data", // Use multipart/form-data for file uploads
+      },
+    });
+
+    toast.success("Property updated successfully!");
+    return response.data;
+  } catch (error) {
+    console.error("Error updating property:", error);
+    toast.error(error.response?.data?.message || "Failed to update property");
+    throw error;
+  }
+};

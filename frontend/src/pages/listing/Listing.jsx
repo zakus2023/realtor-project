@@ -1,11 +1,11 @@
-import React, { useContext, useState } from "react"; // Import useState
+import React, { useContext, useEffect, useState } from "react"; // Import useState
 import "./Listing.css";
 import { useMutation, useQuery } from "react-query";
 import { useParams } from "react-router-dom";
 import { cancelBooking, fetchUserDetails, getListing } from "../../utils/api";
 import { PuffLoader } from "react-spinners";
 import { AiFillHeart } from "react-icons/ai";
-import { FaBed, FaCar, FaShower } from "react-icons/fa";
+import { FaBed, FaCar, FaCookie, FaShower } from "react-icons/fa";
 import { MdAddLocation, MdMap } from "react-icons/md";
 import PropertyImages from "../../Components/PropertyImages/PropertyImages";
 import { Swiper, SwiperSlide, useSwiper } from "swiper/react";
@@ -19,6 +19,8 @@ import UserDetailsContext from "../../context/UserDetailsContext";
 import { Button } from "antd";
 import { toast } from "react-toastify";
 import LikeButton from "../../Components/LikeButton/LikeButton.";
+import { FaEdit } from "react-icons/fa";
+import EditListing from "../../Components/EditListing/EditListing";
 
 function Listing() {
   const { user } = useAuth0();
@@ -26,13 +28,34 @@ function Listing() {
   const { data, isError, isLoading } = useQuery(["listing", id], () =>
     getListing(id)
   );
-  console.log(data)
+
+  console.log("Data", data);
+
+  useEffect(() => {
+    if (user?.email === data?.userEmail) {
+      console.log("The property belongs to the logged in user");
+    } else {
+      console.log("User is not the owner of the property");
+    }
+  }, []);
 
   // State to track the selected image
   const [selectedImage, setSelectedImage] = useState(data?.images[0]);
 
   const [modalOpened, setModalOpened] = useState(false);
+  const [editModalOpened, setEditModalOpened] = useState(false);
   const { validateLogin } = useAuthCheck();
+
+  // function to open Listing Edit Modal
+
+  const handleEditListing = () => {
+    if (!validateLogin()) {
+      toast.error("You must log in to create a listing.");
+      setEditModalOpened(false);
+    } else {
+      setEditModalOpened(true);
+    }
+  };
 
   // state for updating userDetails context
   const {
@@ -104,7 +127,7 @@ function Listing() {
     <div className="wrapper">
       <div className="flexColStart paddings innerWidth listing-container">
         {/* like button */}
-        <LikeButton id={id}/>
+        <LikeButton id={id} />
 
         {/* main image */}
         <img
@@ -145,15 +168,19 @@ function Listing() {
             <div className="flexStart facilities">
               <div className="flexStart facility">
                 <FaShower size={20} color="#1F3E72" />
-                <span>{data?.facilities?.bathrooms} Bath(s)</span>
+                <span>{JSON.parse(data?.facilities)?.baths} Bath(s)</span>
               </div>
               <div className="flexStart facility">
                 <FaBed size={20} color="#1F3E72" />
-                <span>{data?.facilities?.bedrooms} Bed(s)</span>
+                <span>{JSON.parse(data?.facilities)?.beds} Beds(s)</span>
+              </div>
+              <div className="flexStart facility">
+                <FaCookie size={20} color="#1F3E72" />
+                <span>{JSON.parse(data?.facilities)?.kitchen} Kitchen(s)</span>
               </div>
               <div className="flexStart facility">
                 <FaCar size={20} color="#1F3E72" />
-                <span>{data?.facilities?.parking} Parking(s)</span>
+                <span>{JSON.parse(data?.facilities)?.parking} Parking(s)</span>
               </div>
             </div>
             <div className="secondaryText" style={{ textAlign: "justify" }}>
@@ -187,6 +214,23 @@ function Listing() {
                 <span>
                   Your visit is already booked for {bookedVisit?.date}.
                 </span>
+              </>
+            ) : user?.email === data?.userEmail ? (
+              <>
+                <button
+                  type="button"
+                  className="button"
+                  onClick={handleEditListing}
+                 
+                >
+                  <FaEdit style={{width:"50px"}}/>
+                </button>
+
+                <EditListing
+                  opened={editModalOpened}
+                  setOpened={setEditModalOpened}
+                  propertyToEdit={data}
+                />
               </>
             ) : (
               <button

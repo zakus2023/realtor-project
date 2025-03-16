@@ -10,6 +10,7 @@ function SearchBar({ filter, setFilter }) {
       <input
         type="text"
         value={filter}
+        style={{color:"black"}}
         onChange={(e) => setFilter(e.target.value)}
       />
       <button className="button">Search</button>

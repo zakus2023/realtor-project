@@ -1,48 +1,53 @@
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "mongodb"
-    url = env("DATABASE_URL")
+  provider = "mongodb"
+  url = env("DATABASE_URL")
 }
 
 model User {
-    id String @id @default(auto()) @map("_id") @db.ObjectId
-    name String?
-    email String @unique
-    image String?
-    role  String @default("user")
-    status String @default("active")
-    telephone String?
-    address String?
-    bookedVisit Json[]
-    favResidenciesID String[] @db.ObjectId
-    ownedResidencies Residency[] @relation("Owner")
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  name String?
+  email String @unique
+  image String?
+  role String @default("user")
+  status String @default("active")
+  telephone String?
+  address String?
+  bookedVisit Json[]
+  favResidenciesID String[] @db.ObjectId
+  ownedResidencies Residency[] @relation("Owner")
 }
 
 model Residency {
-    id           String   @id @default(auto()) @map("_id") @db.ObjectId
-    title        String
-    description  String
-    price        Int
-    address      String
-    gpsCode      String
-    city         String
-    Region       String
-    country      String
-    images       String[] // Changed from String to String[]
-    documentations String[]
-    facilities   Json
-    userEmail    String
-    status String @default("review") //published, review
-    owner        User     @relation("Owner", fields: [userEmail], references: [email])
-    propertyType String
-    tenureType   String
-    propertyStatus String @default("Listed")
-    createdAt    DateTime @default(now())
-    updatedAt    DateTime @updatedAt
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  title String
+  description String
+  price Int
+  address String
+  gpsCode String
+  city String
+  Region String
+  country String
+  images String[]
+  documentations String[]
+  facilities Json
+  userEmail String
+  status String
+  owner User @relation("Owner", fields: [userEmail], references: [email])
+  propertyType String
+  tenureType String
+  propertyStatus String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@unique(fields: [address, userEmail, gpsCode])
+  @@unique(fields: [address, userEmail, gpsCode])
 }
 
+model Subscription {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  email String @unique
+  createdAt DateTime @default(now())
+}

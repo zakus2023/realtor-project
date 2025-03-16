@@ -12,6 +12,10 @@ import Listing from "./pages/listing/Listing";
 import UserDetailsContext from "./context/UserDetailsContext";
 import Bookings from "./Components/Bookings/Bookings";
 import Favourites from "./Components/Favourites/Favourites";
+import UserListings from "./pages/AllUserProperties/UserListings";
+import AllBookings from "./pages/AllBookings/AllBookings";
+import AllUsers from "./pages/users/AllUsers";
+import MySettings from "./pages/MySettings";
 
 const queryClient = new QueryClient(); // Moved outside to prevent re-creation on each render
 
@@ -46,8 +50,12 @@ function App() {
                 <Route index element={<Entry />} />
                 <Route path="/listings" element={<Listings />} />
                 <Route path="/listing/:id" element={<Listing />} />
-                <Route path="/userBookings" element={<Bookings/>}/>
-                <Route path="/favourites" element={<Favourites/>}/>
+                <Route path="/userBookings" element={<Bookings />} />
+                <Route path="/favourites" element={<Favourites />} />
+                <Route path="/mylistings" element={<UserListings />} />
+                <Route path="/allbookings" element={<AllBookings />} />
+                <Route path="/allusers" element={<AllUsers/>}/>
+                <Route path="/mysettings" element={<MySettings/>}/>
               </Route>
             </Routes>
           </Suspense>

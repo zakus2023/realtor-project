@@ -1,0 +1,86 @@
+.wrapper {
+    background-color: white; /* White background */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .settings-title {
+    text-align: center;
+    color: #333;
+    margin-bottom: 20px;
+  }
+  
+  .user-details-card {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .avatar-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  
+  .user-avatar {
+    border: 2px solid #1890ff;
+  }
+  
+  .user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .user-info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .info-label {
+    font-weight: bold;
+    color: #555;
+    min-width: 100px; /* Ensure labels have consistent width */
+  }
+  
+  .info-value {
+    color: #333;
+  }
+  
+  .button-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+  
+  .loading-container,
+  .error-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  
+  .error-container {
+    color: red;
+  }
+
+  .cancelButton{
+    background-color: red;
+    color: white;
+    font-size: 15px;
+    padding:7px 10px;
+    font-weight: 600;
+    border: none;
+    border-radius: 5px;
+  }
+
+  .cancelButton:hover{
+    background-color: rgb(147, 60, 60);
+  }
+ 

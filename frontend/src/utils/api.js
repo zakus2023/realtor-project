@@ -7,9 +7,6 @@ export const api = axios.create({
   baseURL: "http://localhost:5000", // Base URL for backend API requests
 });
 
-
-
-
 // fetch user details
 export const fetchUserDetails = async (email, token) => {
   try {
@@ -89,15 +86,17 @@ export const createUser = async (email, token) => {
 
 // book a visit
 
-export const bookVisit = async (value, listingId, email, token) => {
-  const date = value;
+export const bookVisit = async ({ date, time, listingId, email, token }) => {
   try {
-    await api.post(
+    const response = await api.post(
       `/api/user/bookVisit/${listingId}`,
       {
         email,
         id: listingId,
         date: dayjs(date).format("DD/MM/YYYY"),
+        time: dayjs(time).format("HH:mm"),
+        visitStatus: "pending",
+        bookingStatus: "active", // Add bookingStatus here
       },
       {
         headers: {
@@ -105,15 +104,21 @@ export const bookVisit = async (value, listingId, email, token) => {
         },
       }
     );
+
+    if (response.status === 200) {
+      return response;
+    } else {
+      throw new Error("Failed to book visit");
+    }
   } catch (error) {
+    console.error("Booking error:", error);
     throw error;
   }
 };
-
 // cancel Booking
 export const cancelBooking = async (id, email, token) => {
   try {
-    const response = api.post(
+    const response = await api.post(
       `/api/user/cancelBooking/${id}`,
       {
         email,
@@ -124,6 +129,12 @@ export const cancelBooking = async (id, email, token) => {
         },
       }
     );
+
+    if (response.status === 200) {
+      return response;
+    } else {
+      throw new Error("Failed to cancel booking");
+    }
   } catch (error) {
     toast.error("Something went wrong");
     throw error;
@@ -155,48 +166,6 @@ export const addToFavourites = async (resId, email, token) => {
     throw error;
   }
 };
-
-// // fetch all favourites
-// export const getUserFavourites = async (email, token) => {
-//   try {
-//     const response = await api.get(
-//       `/api/user//fetchUserfavourites`,
-//       { email },
-//       {
-//         headers: {
-//           Authorization: `Bearer ${token}`, // Correct headers format
-//         },
-//       }
-//     );
-
-//     return response.data; // Axios automatically throws on errors
-//   } catch (error) {
-//     toast.error("Something went wrong!"); // Show error notification to the user
-//     throw error; // Rethrow the error for handling elsewhere
-//   }
-// };
-
-// // fetch all bookings for a user
-
-// export const getUserBookings = async (email, token) => {
-//   try {
-//     const response = await api.get(
-//       `/api/user//fetchUserfavourites`,
-//       { email },
-//       {
-//         headers: {
-//           Authorization: `Bearer ${token}`, // Correct headers format
-//         },
-//       }
-//     );
-
-//     return response.data; // Axios automatically throws on errors
-//   } catch (error) {
-//     toast.error("Something went wrong!"); // Show error notification to the user
-//     throw error; // Rethrow the error for handling elsewhere
-//   }
-// };
-
 
 // add property
 export const addPropertyApiCallFunction = async ({ payload, email, token }) => {
@@ -240,8 +209,15 @@ export const addPropertyApiCallFunction = async ({ payload, email, token }) => {
   }
 };
 
+// =============================================================================
+
 // edit property
-export const editPropertyApiCallFunction = async ({ id, payload, email, token }) => {
+export const editPropertyApiCallFunction = async ({
+  id,
+  payload,
+  email,
+  token,
+}) => {
   try {
     // Create a FormData object
     const formData = new FormData();
@@ -266,18 +242,162 @@ export const editPropertyApiCallFunction = async ({ id, payload, email, token })
     formData.append("email", email);
 
     // Send the request with FormData
-    const response = await api.put(`/api/residence/editProperty/${id}`, formData, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "multipart/form-data", // Use multipart/form-data for file uploads
-      },
-    });
+    const response = await api.put(
+      `/api/residence/editProperty/${id}`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data", // Use multipart/form-data for file uploads
+        },
+      }
+    );
 
     toast.success("Property updated successfully!");
     return response.data;
   } catch (error) {
     console.error("Error updating property:", error);
     toast.error(error.response?.data?.message || "Failed to update property");
+    throw error;
+  }
+};
+
+// fetch all current user properties
+export const fetchAllUsersProperty = async (email, token) => {
+  console.log("User from api: ", email, "token from api: ", token);
+
+  try {
+    const response = await api.get("/api/residence/getAllUserProperties", {
+      params: { email }, // Send email as a query parameter
+      headers: {
+        Authorization: `Bearer ${token}`, // Include the token in the headers
+      },
+      timeout: 10 * 1000, // Set a timeout of 10 seconds
+    });
+
+    if (response.status === 400 || response.status === 500) {
+      throw response.data;
+    }
+
+    return response.data;
+  } catch (error) {
+    toast.error("Something went wrong");
+    throw error;
+  }
+};
+
+// Function to fetch all bookings
+export const fetchAllBookings = async (token) => {
+  console.log(token);
+  try {
+    const response = await api.get("/api/user/fetchAllBookings", {
+      headers: {
+        Authorization: `Bearer ${token}`, // Include the token for authentication
+      },
+    });
+
+    if (response.status === 200) {
+      return response.data.bookings; // Return the list of bookings
+    }
+
+    throw new Error("Failed to fetch bookings");
+  } catch (error) {
+    console.error("Error fetching bookings:", error);
+    throw error;
+  }
+};
+
+// Function to fetch all users (with role check)
+export const fetchAllUsers = async (email, role, token) => {
+  try {
+    // Make a GET request to fetch all users
+    const response = await api.get(`/api/user/fetchAllUsers/${role}`, {
+      params: { email }, // Send the user's email as a query parameter
+      headers: {
+        Authorization: `Bearer ${token}`, // Include the token for authentication
+      },
+      timeout: 10 * 1000, // Set a timeout of 10 seconds
+    });
+
+    // Check if the response has a bad status code and throw an error if so
+    if (response.status === 400 || response.status === 500) {
+      throw response.data;
+    }
+
+    // Check if the response indicates unauthorized access
+    if (
+      response.data.message === "Unauthorized: Only admins can fetch all users"
+    ) {
+      toast.error("You do not have permission to fetch all users.");
+      throw new Error("Unauthorized: Only admins can fetch all users");
+    }
+
+    // Return the list of users if successful
+    return response.data;
+  } catch (error) {
+    // Handle errors and show appropriate toast notifications
+    if (error.response && error.response.status === 403) {
+      toast.error("You do not have permission to fetch all users.");
+    } else {
+      toast.error("Something went wrong while fetching users!");
+    }
+    throw error; // Rethrow the error for further handling
+  }
+};
+
+// =========================================================
+
+// edit user
+
+// Function to edit user details
+export const editUserDetails = async (email, updatedData, token) => {
+  try {
+    const response = await api.put(
+      `/api/user/editUserDetails/${email}`, // API endpoint
+      updatedData, // Updated data (name, telephone, role, status)
+      {
+        headers: {
+          Authorization: `Bearer ${token}`, // Include the token for authentication
+        },
+      }
+    );
+
+    // Check if the response has a bad status code and throw an error if so
+    if (response.status === 400 || response.status === 500) {
+      throw response.data;
+    }
+
+    // Return the updated user data if successful
+    return response.data;
+  } catch (error) {
+    toast.error("Failed to update user details"); // Show error notification
+    throw error; // Rethrow the error for further handling
+  }
+};
+
+// fetch a single subscription
+
+export const fetchSubscription = async (email, token) => {
+  const response = await api.get("/api/user/getSubscription", {
+    params: { email }, // Pass email as a query parameter
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
+// fetch all subscriptions
+export const fetchAllSubscriptions = async (token) => {
+  try {
+    const response = await api.get("/api/user/fetchAllSubscriptions", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    toast.error("Failed to load subscriptions");
     throw error;
   }
 };

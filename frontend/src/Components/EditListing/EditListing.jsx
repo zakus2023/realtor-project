@@ -21,7 +21,12 @@ import { Spin } from "antd";
 const { Step } = Steps;
 const { Option } = Select;
 
-function EditListing({ opened, setOpened, propertyToEdit }) {
+function EditListing({
+  opened,
+  setOpened,
+  propertyToEdit,
+  currentUserDetails,
+}) {
   const { user } = useAuth0();
   const { userDetails } = useContext(UserDetailsContext);
   const token = userDetails.token;
@@ -29,6 +34,7 @@ function EditListing({ opened, setOpened, propertyToEdit }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [uploading, setUploading] = useState(false); // For file uploads
   const [submitting, setSubmitting] = useState(false); // For form submission
+  console.log(currentUserDetails);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -39,6 +45,8 @@ function EditListing({ opened, setOpened, propertyToEdit }) {
     Region: "",
     country: "",
     gpsCode: "",
+    propertyStatus: "listed",
+    status: "review",
     propertyType: "",
     tenureType: "",
     images: [],
@@ -50,53 +58,58 @@ function EditListing({ opened, setOpened, propertyToEdit }) {
       parking: 0,
     },
   });
-  console.log(formData);
+  console.log("Form Data: ", formData);
 
   // Initialize formData with propertyToEdit data
- useEffect(() => {
-  if (propertyToEdit) {
-    // Parse facilities if it's a string
-    const facilities = typeof propertyToEdit.facilities === 'string' 
-      ? JSON.parse(propertyToEdit.facilities) 
-      : propertyToEdit.facilities || {
-        beds: 1,
-        baths: 1,
-        kitchen: 1,
-        parking: 0,
-      };
-
-    // Transform images and documentations into the format expected by Upload
-    const images = propertyToEdit.images?.map((image, index) => ({
-      uid: `image-${index}`,
-      name: `image-${index}.jpg`, // Use the actual file name if available
-      status: 'done',
-      url: image, // Use the image URL
-    })) || [];
-
-    const documentations = propertyToEdit.documentations?.map((doc, index) => ({
-      uid: `doc-${index}`,
-      name: `document-${index}.pdf`, // Use the actual file name if available
-      status: 'done',
-      url: doc, // Use the document URL
-    })) || [];
-
-    setFormData({
-      title: propertyToEdit.title,
-      description: propertyToEdit.description,
-      price: propertyToEdit.price.toString(),
-      address: propertyToEdit.address,
-      city: propertyToEdit.city,
-      Region: propertyToEdit.Region,
-      country: propertyToEdit.country,
-      gpsCode: propertyToEdit.gpsCode,
-      propertyType: propertyToEdit.propertyType,
-      tenureType: propertyToEdit.tenureType,
-      images, // Use the transformed images array
-      documentations, // Use the transformed documentations array
-      facilities,
-    });
-  }
-}, [propertyToEdit]);
+  useEffect(() => {
+    if (propertyToEdit) {
+      // Parse facilities if it's a string
+      const facilities =
+        typeof propertyToEdit.facilities === "string"
+          ? JSON.parse(propertyToEdit.facilities)
+          : propertyToEdit.facilities || {
+              beds: 1,
+              baths: 1,
+              kitchen: 1,
+              parking: 0,
+            };
+  
+      // Transform images and documentations into the format expected by Upload
+      const images =
+        propertyToEdit.images?.map((image, index) => ({
+          uid: `image-${index}`,
+          name: `image-${index}.jpg`, // Use the actual file name if available
+          status: "done",
+          url: image, // Use the image URL
+        })) || [];
+  
+      const documentations =
+        propertyToEdit.documentations?.map((doc, index) => ({
+          uid: `doc-${index}`,
+          name: `document-${index}.pdf`, // Use the actual file name if available
+          status: "done",
+          url: doc, // Use the document URL
+        })) || [];
+  
+      setFormData({
+        title: propertyToEdit.title,
+        description: propertyToEdit.description,
+        price: propertyToEdit.price.toString(),
+        address: propertyToEdit.address,
+        city: propertyToEdit.city,
+        Region: propertyToEdit.Region,
+        country: propertyToEdit.country,
+        gpsCode: propertyToEdit.gpsCode,
+        propertyStatus: propertyToEdit.propertyStatus ?? "Listed", // Default to "Listed"
+        status: propertyToEdit.status ?? "review", // Default to "review"
+        propertyType: propertyToEdit.propertyType,
+        tenureType: propertyToEdit.tenureType,
+        images, // Use the transformed images array
+        documentations, // Use the transformed documentations array
+        facilities,
+      });
+    }
+  }, [propertyToEdit]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -148,7 +161,9 @@ function EditListing({ opened, setOpened, propertyToEdit }) {
         );
       case 3: // Other Information
         return formData.propertyType !== "" && formData.tenureType !== "";
-      case 4: // Upload Files
+      case 4: // Other property status
+        return formData.propertyStatus !== "" && formData.status !== "";
+      case 5: // Upload Files
         return formData.images.length > 0 && formData.documentations.length > 0;
       default:
         return false;
@@ -165,6 +180,8 @@ function EditListing({ opened, setOpened, propertyToEdit }) {
       formData.city.trim() !== "" &&
       formData.Region.trim() !== "" &&
       formData.country.trim() !== "" &&
+      formData.propertyStatus.trim() !== "" &&
+      formData.status.trim() !== "" &&
       formData.propertyType !== "" &&
       formData.tenureType !== "" &&
       formData.images.length > 0 &&
@@ -189,6 +206,8 @@ function EditListing({ opened, setOpened, propertyToEdit }) {
           Region: "",
           country: "",
           gpsCode: "",
+          propertyStatus:"",
+          status:"",
           propertyType: "",
           tenureType: "",
           images: [],
@@ -227,6 +246,8 @@ function EditListing({ opened, setOpened, propertyToEdit }) {
         Region: formData.Region,
         country: formData.country,
         gpsCode: formData.gpsCode,
+        propertyStatus: formData.propertyStatus,
+        status: formData.status,
         propertyType: formData.propertyType,
         tenureType: formData.tenureType,
         facilities: formData.facilities,
@@ -281,7 +302,7 @@ function EditListing({ opened, setOpened, propertyToEdit }) {
       ),
     },
     {
-      title: "Address and Location",
+      title: "Address",
       content: (
         <>
           <Input
@@ -399,6 +420,36 @@ function EditListing({ opened, setOpened, propertyToEdit }) {
           >
             <Option value="rent">Rent</Option>
             <Option value="sale">Sale</Option>
+          </Select>
+        </>
+      ),
+    },
+    {
+      title: "Listing Status",
+      content: (
+        <>
+          <Select
+            value={formData.propertyStatus}
+            onChange={(value) =>
+              setFormData({ ...formData, propertyStatus: value })
+            }
+            style={{ marginBottom: "1rem", width: "100%" }}
+          >
+            <Option value="listed">Available</Option>
+            <Option value="sold">Sold</Option>
+            <Option value="rented">Rented Out</Option>
+          </Select>
+          <Select
+            value={formData.status}
+            onChange={(value) =>
+              setFormData({ ...formData, status: value })
+            }
+            style={{ marginBottom: "1rem", width: "100%" }}
+            disabled={currentUserDetails?.role !== "admin"} // Correct condition
+          >
+            <Option value="published">Published</Option>
+            <Option value="review">Review</Option>
+            <Option value="unpublished">Unpublished</Option>
           </Select>
         </>
       ),

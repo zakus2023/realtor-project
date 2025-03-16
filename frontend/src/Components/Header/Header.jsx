@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import "./Header.css";
 import logo from "/logowhite.png";
 import { BiMenuAltRight } from "react-icons/bi";
@@ -9,10 +9,35 @@ import ProfileMenu from "../ProfileMenu/ProfileMenu";
 import CreateListing from "../CreateListing/CreateListing";
 import useAuthCheck from "../../hooks/useAuthCheck";
 import { toast } from "react-toastify";
+import ContactModal from "../ContactModal/ContactModal";
+
 
 function Header() {
+
+  useEffect(() => {
+    const updateExpiredBookings = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/user/update-expired-bookings", {
+          method: "PUT",
+        });
+  
+        if (response.ok) {
+          console.log("Expired bookings updated successfully");
+        } else {
+          console.error("Failed to update expired bookings");
+        }
+      } catch (error) {
+        console.error("Error updating expired bookings:", error);
+      }
+    };
+  
+    updateExpiredBookings();
+  }, []); // Empty dependency array ensures this runs only once
+  
+
   const [menuOpened, setMenuOpened] = useState(false);
   const [modalOpened, setModalOpened] = useState(false);
+  const [contactModalOpened, setContactModalOpened] = useState(false); // State for contact modal
   const { validateLogin } = useAuthCheck();
   const { loginWithRedirect, isAuthenticated, user, logout } = useAuth0();
 
@@ -45,12 +70,24 @@ function Header() {
         <OutsideClickHandler onOutsideClick={() => setMenuOpened(false)}>
           <div className="flexCenter h-menu" style={getMenuStyles(menuOpened)}>
             {/* Listings Link */}
-            <NavLink to="/listings" onClick={() => setMenuOpened(false)} style={{fontWeight:"600"}}>
+            <NavLink
+              to="/listings"
+              onClick={() => setMenuOpened(false)}
+              style={{ fontWeight: "600" }}
+            >
               Listings
             </NavLink>
 
             {/* Contact Link */}
-            <a href="mailto:idbsch2012@gmail.com" onClick={() => setMenuOpened(false)} style={{fontWeight:"600"}}>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setContactModalOpened(true); // Open the contact modal
+                setMenuOpened(false);
+              }}
+              style={{ fontWeight: "600" }}
+            >
               Contact
             </a>
 
@@ -58,7 +95,13 @@ function Header() {
             <div
               className="create-listing-btn"
               onClick={handleCreateListing}
-              style={{ cursor: "pointer", backgroundColor: "green", color: "white", padding: "8px 15px", borderRadius: "5px" }}
+              style={{
+                cursor: "pointer",
+                backgroundColor: "green",
+                color: "white",
+                padding: "8px 15px",
+                borderRadius: "5px",
+              }}
             >
               Add Property
             </div>
@@ -83,6 +126,12 @@ function Header() {
           <BiMenuAltRight size={30} />
         </div>
       </div>
+
+      {/* Contact Modal */}
+      <ContactModal
+        isOpen={contactModalOpened}
+        onClose={() => setContactModalOpened(false)}
+      />
     </section>
   );
 }

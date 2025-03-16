@@ -18,7 +18,7 @@ function Footer() {
             <div className="flexColStart r-footer">
                 <span className='primaryText'>Our Location</span>
                 <span className='secondaryText'>Plot 5A Block L, Oforikrom Kumasi, Ghana</span>
-                <div className="flexCenter f-menu">
+                <div className="flexCenter4 f-menu">
                     <span className='secondaryText'>Properties</span>
                     <span className='secondaryText'> Services</span>
                     <span className='secondaryText'>Products</span>

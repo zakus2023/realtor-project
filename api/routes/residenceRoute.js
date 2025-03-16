@@ -3,6 +3,7 @@ import {
   addProperty,
   editProperty,
   getAllProperties,
+  getAllUserProperties,
   getResidence,
 } from "../controllers/residenceController.js";
 import jwtCheck from "../config/auth0Config.js";
@@ -16,8 +17,9 @@ const upload = multer({ storage }); // Initialize multer with the storage config
 
 // Routes
 router.post("/addProperty", upload.any(), jwtCheck, addProperty); // Add property with file uploads and JWT authentication
-router.put("/editProperty/:id", upload.any(), jwtCheck, editProperty)
+router.put("/editProperty/:id", upload.any(), jwtCheck, editProperty);
 router.get("/fetchResidencies", getAllProperties); // Fetch all properties
 router.get("/fetchResidence/:id", getResidence); // Fetch a single property by ID
+router.get("/getAllUserProperties", jwtCheck, getAllUserProperties); // Fetch all proerties that belongs to the current user
 
 export default router;

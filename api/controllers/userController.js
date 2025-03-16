@@ -1,19 +1,119 @@
 import asyncHandler from "express-async-handler";
 import { prisma } from "../config/prismaConfig.js";
+import dayjs from "dayjs";
+import checkAndRemoveExpiredBookings from "../config/expiredBookings.js";
+import nodemailer from "nodemailer";
+
+// Nodemailer setup
+const sendEmail = async (to, subject, text) => {
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: "idbsch2012@gmail.com",
+      pass: "bmdu vqxi dgqj dqoi",
+    },
+  });
+
+  const mailOptions = {
+    from: "idbsch2012@gmail.com",
+    to,
+    subject,
+    text,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
 
 // create user
 export const createUser = asyncHandler(async (req, res) => {
   console.log("Creating User");
   let { email } = req.body;
-  const userExists = await prisma.user.findUnique({ where: { email: email } });
 
-  if (!userExists) {
-    const user = await prisma.user.create({ data: req.body });
-    res.send({
-      message: "User registered successfully",
-      user: user,
+  try {
+    const userExists = await prisma.user.findUnique({
+      where: { email: email },
     });
-  } else res.send(201, { message: "User already registered" });
+
+    if (!userExists) {
+      const user = await prisma.user.create({ data: req.body });
+
+      // Check for expired bookings (if any)
+      await checkAndRemoveExpiredBookings(email);
+
+      res.send({
+        message: "User registered successfully",
+        user: user,
+      });
+    } else {
+      // Check for expired bookings (if any)
+      await checkAndRemoveExpiredBookings(email);
+
+      res.status(201).send({ message: "User already registered" });
+    }
+  } catch (error) {
+    console.error("Error creating user:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// fetch all users
+export const fetchAllUsers = asyncHandler(async (req, res) => {
+  try {
+    // Extract the role from the request parameters
+    const { role } = req.params;
+
+    // Extract the user's email or ID from the request (assuming it's sent in the request body or query)
+    const { email } = req.query; // or req.body, depending on how you send it
+
+    // Fetch the current user from the database
+    const currentUser = await prisma.user.findUnique({
+      where: { email }, // or { id } if you're using ID
+      select: { role: true }, // Only fetch the role for the check
+    });
+
+    // If the user is not found
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if the current user's role matches the required role
+    if (currentUser.role !== role) {
+      return res.status(403).json({
+        message: `Unauthorized: Only users with the role '${role}' can fetch all users`,
+      });
+    }
+
+    // Fetch all users from the database
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        status: true,
+        telephone: true,
+        address: true,
+        bookedVisit: true,
+        favResidenciesID: true,
+        ownedResidencies: true, // Include owned residencies if needed
+      },
+    });
+
+    // If no users are found
+    if (!users || users.length === 0) {
+      return res.status(200).json({ message: "No users found", users: [] });
+    }
+
+    // Return all users
+    res.status(200).json({ users });
+  } catch (error) {
+    // Handle unexpected errors
+    res.status(500).json({
+      message: "An error occurred while fetching users",
+      error: error.message,
+    });
+  }
 });
 
 // fetch a particular user's details
@@ -21,12 +121,16 @@ export const createUser = asyncHandler(async (req, res) => {
 export const fetchUserDetails = asyncHandler(async (req, res) => {
   const { email } = req.params;
   console.log("Email: ", email);
+
   // Validate email
   if (!email) {
     return res.status(400).json({ message: "Email is required" });
   }
 
   try {
+    // Check for expired bookings (if any)
+    await checkAndRemoveExpiredBookings(email);
+
     // Fetch user details from the database
     const user = await prisma.user.findUnique({
       where: { email: email },
@@ -47,37 +151,138 @@ export const fetchUserDetails = asyncHandler(async (req, res) => {
 
 // =====================================================================
 // book a visit
-
 export const bookVisit = asyncHandler(async (req, res) => {
-  const { email, date } = req.body;
+  const { email, date, time, visitStatus } = req.body;
   const id = req.params.id;
 
   try {
-    // Find user and check for existing bookings
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { bookedVisit: true },
+      select: { bookedVisit: true, name: true, telephone: true, address: true },
     });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (user.bookedVisit.some((visit) => visit.id === id)) {
+    if (
+      user.bookedVisit.some(
+        (visit) => visit.id === id && visit.bookingStatus === "active"
+      )
+    ) {
       return res
         .status(400)
         .json({ message: "You have already booked to visit this property" });
     }
 
-    // Update bookedVisit array
+    const allUsers = await prisma.user.findMany({
+      select: { bookedVisit: true },
+    });
+
+    const existingBooking = allUsers.some((user) =>
+      user.bookedVisit.some(
+        (visit) => visit.id === id && visit.date === date && visit.time === time
+      )
+    );
+
+    if (existingBooking) {
+      return res.status(400).json({
+        message:
+          "This date and time are already booked for this property by another user. Please choose a different date or time.",
+      });
+    }
+
+    const conflictingBooking = allUsers.some((user) =>
+      user.bookedVisit.some((visit) => {
+        if (visit.id === id && visit.date === date) {
+          const existingTime = dayjs(visit.time, "HH:mm");
+          const newTime = dayjs(time, "HH:mm");
+          const timeDifference = Math.abs(newTime.diff(existingTime, "minute"));
+
+          return timeDifference < 60;
+        }
+        return false;
+      })
+    );
+
+    if (conflictingBooking) {
+      return res.status(400).json({
+        message:
+          "There is already a booking for this property within 60 minutes of the selected time by another user. Please choose a different time.",
+      });
+    }
+
     await prisma.user.update({
       where: { email },
       data: {
         bookedVisit: {
-          set: [...(user.bookedVisit || []), { id, date }],
+          set: [
+            ...(user.bookedVisit || []),
+            {
+              id,
+              date,
+              time,
+              visitStatus: visitStatus || "pending",
+              bookingStatus: "active",
+            }, // Add bookingStatus here
+          ],
         },
       },
     });
+
+    // Fetch property details
+    const property = await prisma.residency.findUnique({
+      where: { id },
+    });
+
+    if (!property) {
+      return res.status(404).json({ message: "Property not found" });
+    }
+
+    // Fetch the owner's details
+    const owner = await prisma.user.findUnique({
+      where: { email: property.userEmail },
+    });
+
+    // Fetch all admins
+    const admins = await prisma.user.findMany({
+      where: { role: "admin" },
+    });
+
+    // Email content for user and admin
+    const userAdminEmailSubject = "Visit Booked Successfully";
+    const userAdminEmailText = `
+      Visit Details:
+      - Property: ${property.title}
+      - Date: ${date}
+      - Time: ${time}
+      - User: ${user.name}
+      - Address: ${user.address}
+      - Telephone: ${user.telephone}
+    `;
+
+    // Email content for owner
+    const ownerEmailSubject = "New Visit Booked for Your Property";
+    const ownerEmailText = `
+      Visit Details:
+      - Property: ${property.title}
+      - Date: ${date}
+      - Time: ${time}
+    `;
+
+    // Send email to the user
+    await sendEmail(email, userAdminEmailSubject, userAdminEmailText);
+
+    // Send email to all admins
+    const adminEmails = admins.map((admin) => admin.email);
+    const adminEmailPromises = adminEmails.map((adminEmail) =>
+      sendEmail(adminEmail, userAdminEmailSubject, userAdminEmailText)
+    );
+
+    // Send email to the owner
+    await sendEmail(owner.email, ownerEmailSubject, ownerEmailText);
+
+    await Promise.all(adminEmailPromises);
 
     res.json({ message: "You have booked to visit the property successfully" });
   } catch (error) {
@@ -86,51 +291,203 @@ export const bookVisit = asyncHandler(async (req, res) => {
   }
 });
 
-// =======================================================
-
-// fetch all bookings
+// fetch all user bookings
 export const fetchUserBookings = asyncHandler(async (req, res) => {
   const { email } = req.body;
+
   try {
+    // Check for expired bookings (if any)
+    await checkAndRemoveExpiredBookings(email);
+
     const bookedVisits = await prisma.user.findUnique({
       where: { email },
       select: { bookedVisit: true },
     });
+
     res.status(200).send(bookedVisits);
   } catch (error) {
-    throw new Error(error.message);
+    console.error("Error fetching user bookings:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-// ============================================================
+// fetch all bookings
+export const fetchAllBookings = asyncHandler(async (req, res) => {
+  try {
+    // Fetch all users with their bookedVisits and user details
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        telephone: true,
+        bookedVisit: true, // Fetch the bookedVisit field
+      },
+    });
+
+    // Combine all bookedVisits into a single array, including user details
+    const allBookings = users.flatMap((user) =>
+      user.bookedVisit.map((booking) => ({
+        ...booking,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          telephone: user.telephone,
+        },
+      }))
+    );
+
+    // If no bookings are found
+    if (allBookings.length === 0) {
+      return res
+        .status(200)
+        .json({ message: "No bookings found", bookings: [] });
+    }
+
+    // Fetch property details for each booking
+    const bookingsWithProperties = await Promise.all(
+      allBookings.map(async (booking) => {
+        // Ensure booking is a valid object and has a propertyId
+        if (!booking || typeof booking !== "object" || !booking.id) {
+          console.warn("Invalid booking:", booking);
+          return {
+            ...booking,
+            property: null, // Indicate that the property is missing
+          };
+        }
+
+        // Fetch the property associated with the booking
+        const property = await prisma.residency.findUnique({
+          where: {
+            id: booking.id, // Assuming booking has a propertyId field
+          },
+        });
+
+        // Combine booking details with property details and user details
+        return {
+          ...booking,
+          property: property || null, // Handle case where property is not found
+        };
+      })
+    );
+
+    // Return all bookings with their respective properties and user details
+    res.status(200).json({ bookings: bookingsWithProperties });
+  } catch (error) {
+    // Handle unexpected errors
+    res.status(500).json({
+      message: "An error occurred while fetching bookings",
+      error: error.message,
+    });
+  }
+});
 // cancel booking
 
 export const cancelBooking = asyncHandler(async (req, res) => {
   const { email } = req.body;
   const { id } = req.params;
+
   try {
     const user = await prisma.user.findUnique({
-      where: { email: email },
-      select: { bookedVisit: true },
+      where: { email },
+      select: { bookedVisit: true, name: true, telephone: true, address: true },
     });
-    const index = user.bookedVisit.findIndex((visit) => visit.id === id);
-    if (index === -1) {
-      res.status(404).json({ message: "Booking not found" });
-    } else {
-      user.bookedVisit.splice(index, 1);
-      await prisma.user.update({
-        where: { email },
-        data: {
-          bookedVisit: user.bookedVisit,
-        },
-      });
-      res.send("Booking cancelled successfully");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
+
+    // Find the index of the booking with the matching id, bookingStatus === "active", and visitStatus === "pending"
+    const index = user.bookedVisit.findIndex(
+      (visit) =>
+        visit.id === id &&
+        visit.bookingStatus === "active" &&
+        visit.visitStatus === "pending"
+    );
+
+    if (index === -1) {
+      return res
+        .status(404)
+        .json({ message: "No active and pending booking found to cancel." });
+    }
+
+    const booking = user.bookedVisit[index];
+
+    // Update the booking status to "expired" and visitStatus to "cancelled"
+    user.bookedVisit[index] = {
+      ...booking,
+      bookingStatus: "expired",
+      visitStatus: "cancelled",
+    };
+
+    await prisma.user.update({
+      where: { email },
+      data: {
+        bookedVisit: user.bookedVisit,
+      },
+    });
+
+    // Fetch property details
+    const property = await prisma.residency.findUnique({
+      where: { id },
+    });
+
+    if (!property) {
+      return res.status(404).json({ message: "Property not found" });
+    }
+
+    // Fetch the owner's details
+    const owner = await prisma.user.findUnique({
+      where: { email: property.userEmail },
+    });
+
+    // Fetch all admins
+    const admins = await prisma.user.findMany({
+      where: { role: "admin" },
+    });
+
+    // Email content for user and admin
+    const userAdminEmailSubject = "Booking Cancelled";
+    const userAdminEmailText = `
+      Booking Cancelled:
+      - Property: ${property.title}
+      - Date: ${booking.date}
+      - Time: ${booking.time}
+      - User: ${user.name}
+      - Address: ${user.address}
+      - Telephone: ${user.telephone}
+    `;
+
+    // Email content for owner
+    const ownerEmailSubject = "Visit Cancelled for Your Property";
+    const ownerEmailText = `
+      Booking Cancelled:
+      - Property: ${property.title}
+      - Date: ${booking.date}
+      - Time: ${booking.time}
+    `;
+
+    // Send email to the user
+    await sendEmail(email, userAdminEmailSubject, userAdminEmailText);
+
+    // Send email to all admins
+    const adminEmails = admins.map((admin) => admin.email);
+    const adminEmailPromises = adminEmails.map((adminEmail) =>
+      sendEmail(adminEmail, userAdminEmailSubject, userAdminEmailText)
+    );
+
+    // Send email to the owner
+    await sendEmail(owner.email, ownerEmailSubject, ownerEmailText);
+
+    await Promise.all(adminEmailPromises);
+
+    res.send("Booking cancelled successfully");
   } catch (error) {
-    throw new Error(error.message);
+    console.error("Error cancelling booking:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
 // ================================================
 // update favourites/ add and remove
 
@@ -199,3 +556,273 @@ export const fetchUserFavourites = asyncHandler(async (req, res) => {
 });
 
 // =========================================================
+// edit user
+
+export const editUserDetails = asyncHandler(async (req, res) => {
+  const { email } = req.params; // Extract email from request parameters
+  const { name, address, telephone, role, status } = req.body; // Extract updated fields from request body
+
+  console.log("Email: ", email);
+  console.log("Updated Data: ", { name, address, telephone, role, status });
+
+  // Validate email
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  // Validate updated fields
+  if (!name && !telephone && !role && !status) {
+    return res.status(400).json({ message: "No fields to update" });
+  }
+
+  try {
+    // Fetch the user to ensure they exist
+    const user = await prisma.user.findUnique({
+      where: { email: email },
+    });
+
+    // Check if user exists
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Update user details
+    const updatedUser = await prisma.user.update({
+      where: { email: email },
+      data: {
+        name: name || user.name, // Use existing value if no update provided
+        address: address || user.address,
+        telephone: telephone || user.telephone, // Use existing value if no update provided
+        role: role || user.role, // Use existing value if no update provided
+        status: status || user.status, // Use existing value if no update provided
+      },
+    });
+
+    // Return updated user details
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    console.error("Error updating user:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// ==============================================================================
+
+export const subscribe = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  // Validate email
+  if (!email || !email.includes("@")) {
+    return res
+      .status(400)
+      .json({ error: "Please enter a valid email address." });
+  }
+
+  try {
+    // Check if email is already subscribed
+    const existingSubscription = await prisma.subscription.findUnique({
+      where: { email },
+    });
+
+    if (existingSubscription) {
+      return res
+        .status(400)
+        .json({ error: "This email is already subscribed." });
+    }
+
+    // Add email to subscriptions
+    await prisma.subscription.create({
+      data: { email },
+    });
+
+    console.log("New subscription:", email);
+
+    // Send email to the user
+    await sendEmail(
+      email,
+      "Subscription Successful",
+      "Thank you for subscribing to our newsletter!"
+    );
+
+    // Fetch all admins
+    const admins = await prisma.user.findMany({
+      where: { role: "admin" },
+    });
+
+    // Send email to all admins
+    const adminEmails = admins.map((admin) => admin.email);
+    const adminEmailPromises = adminEmails.map((adminEmail) =>
+      sendEmail(
+        adminEmail,
+        "New Subscriber",
+        `A new user with email ${email} has subscribed to the newsletter.`
+      )
+    );
+
+    await Promise.all(adminEmailPromises);
+
+    // Send success response
+    res.status(200).json({ message: "Subscription successful!" });
+  } catch (error) {
+    console.error("Error saving subscription:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred. Please try again later." });
+  }
+});
+
+// fetch all subscriptions
+
+export const fetchSingleSubscriptions = asyncHandler(async (req, res) => {
+  const { email } = req.query; // Use req.query for GET requests
+
+  if (!email) {
+    return res.status(400).json({ error: "Email is required." });
+  }
+
+  try {
+    const subscription = await prisma.subscription.findUnique({
+      where: { email },
+    });
+
+    if (!subscription) {
+      return res.status(404).json({ error: "Subscription not found." });
+    }
+
+    res.status(200).json(subscription);
+  } catch (error) {
+    console.error("Error fetching subscription:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while fetching the subscription." });
+  }
+});
+
+export const unSubscribe = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: "Email is required." });
+  }
+
+  try {
+    // Check if the email exists in the subscriptions
+    const existingSubscription = await prisma.subscription.findUnique({
+      where: { email },
+    });
+
+    if (!existingSubscription) {
+      return res
+        .status(404)
+        .json({ error: "Email not found in subscriptions." });
+    }
+
+    // Delete the subscription
+    await prisma.subscription.delete({
+      where: { email },
+    });
+
+    // Send email to the user
+    await sendEmail(
+      email,
+      "Unsubscription Successful",
+      "You have successfully unsubscribed from our newsletter."
+    );
+
+    // Fetch all admins
+    const admins = await prisma.user.findMany({
+      where: { role: "admin" },
+    });
+
+    // Send email to all admins
+    const adminEmails = admins.map((admin) => admin.email);
+    const adminEmailPromises = adminEmails.map((adminEmail) =>
+      sendEmail(
+        adminEmail,
+        "User Unsubscribed",
+        `The user with email ${email} has unsubscribed from the newsletter.`
+      )
+    );
+
+    await Promise.all(adminEmailPromises);
+
+    res.status(200).json({ message: "Unsubscribed successfully!" });
+  } catch (error) {
+    console.error("Error unsubscribing:", error);
+    res.status(500).json({ error: "An error occurred while unsubscribing." });
+  }
+});
+
+// Fetch all subscriptions
+export const fetchAllSubscriptions = asyncHandler(async (req, res) => {
+  try {
+    // Fetch all subscriptions from the database
+    const subscriptions = await prisma.subscription.findMany();
+
+    // Return the list of subscriptions
+    res.status(200).json(subscriptions);
+  } catch (error) {
+    console.error("Error fetching subscriptions:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while fetching subscriptions." });
+  }
+});
+
+// update expired booking
+export const updateExpiredBookings = asyncHandler(async (req, res) => {
+  try {
+    const now = new Date();
+    const currentDateTime = dayjs(now).format("YYYY-MM-DD HH:mm");
+
+    // Fetch all users with bookedVisit entries
+    const users = await prisma.user.findMany({
+      where: {
+        bookedVisit: {
+          isEmpty: false, // Only fetch users with bookedVisit entries
+        },
+      },
+      select: {
+        id: true,
+        bookedVisit: true,
+      },
+    });
+    console.log(users)
+
+    let totalUpdated = 0;
+
+    // Iterate through each user
+    for (const user of users) {
+      const updatedBookings = user.bookedVisit.map((booking) => {
+        const bookingDate = dayjs(booking.date).format("YYYY-MM-DD");
+        const bookingTime = dayjs(booking.time).format("HH:mm");
+
+        // Check if the booking is expired
+        if (
+          bookingDate < dayjs(currentDateTime).format("YYYY-MM-DD") ||
+          (bookingDate === dayjs(currentDateTime).format("YYYY-MM-DD") &&
+            bookingTime <= dayjs(currentDateTime).format("HH:mm"))
+        ) {
+          // Update the booking status
+          booking.visitStatus = "cancelled";
+          booking.bookingStatus = "expired";
+          totalUpdated++;
+        }
+        return booking;
+      });
+      console.log(updatedBookings)
+
+      // Save the updated bookings back to the user
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { bookedVisit: updatedBookings },
+      });
+    }
+
+    console.log(`Updated ${totalUpdated} expired bookings`);
+    res.status(200).json({ message: "Expired bookings updated successfully" });
+  } catch (error) {
+    console.error("Error updating expired bookings:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});

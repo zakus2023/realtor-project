@@ -1,10 +1,9 @@
-import React, { useContext, useEffect, useState } from "react"; // Import useState
+import React, { useContext, useState } from "react";
 import "./Listing.css";
 import { useMutation, useQuery } from "react-query";
 import { useParams } from "react-router-dom";
 import { cancelBooking, fetchUserDetails, getListing } from "../../utils/api";
 import { PuffLoader } from "react-spinners";
-import { AiFillHeart } from "react-icons/ai";
 import { FaBed, FaCar, FaCookie, FaShower } from "react-icons/fa";
 import { MdAddLocation, MdMap } from "react-icons/md";
 import PropertyImages from "../../Components/PropertyImages/PropertyImages";
@@ -18,9 +17,9 @@ import BookingModal from "../../Components/BookingModal/BookingModal";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { Button } from "antd";
 import { toast } from "react-toastify";
-import LikeButton from "../../Components/LikeButton/LikeButton.";
 import { FaEdit } from "react-icons/fa";
 import EditListing from "../../Components/EditListing/EditListing";
+import LikeButton from "../../Components/LikeButton/LikeButton.";
 
 function Listing() {
   const { user } = useAuth0();
@@ -29,67 +28,45 @@ function Listing() {
     getListing(id)
   );
 
-  console.log("Data", data);
-
-  useEffect(() => {
-    if (user?.email === data?.userEmail) {
-      console.log("The property belongs to the logged in user");
-    } else {
-      console.log("User is not the owner of the property");
-    }
-  }, []);
-
-  // State to track the selected image
   const [selectedImage, setSelectedImage] = useState(data?.images[0]);
-
   const [modalOpened, setModalOpened] = useState(false);
   const [editModalOpened, setEditModalOpened] = useState(false);
   const { validateLogin } = useAuthCheck();
 
-  // function to open Listing Edit Modal
-
-  const handleEditListing = () => {
-    if (!validateLogin()) {
-      toast.error("You must log in to create a listing.");
-      setEditModalOpened(false);
-    } else {
-      setEditModalOpened(true);
-    }
-  };
-
-  // state for updating userDetails context
   const {
     userDetails: { token, bookings },
     setUserDetails,
   } = useContext(UserDetailsContext);
 
-  // fetch single user
-
+  // Fetch user details
   const { data: userDetail } = useQuery(
     ["fetchUserDetails", user?.email],
     () => fetchUserDetails(user?.email, token),
     {
-      enabled: !!user?.email && !!token, // Only run the query if user email exists
+      enabled: !!user?.email && !!token,
     }
   );
 
-  // =======================================
-
-  // cancel booking
+  // Cancel booking mutation
   const { mutate: removeBooking, isLoading: cancelling } = useMutation({
     mutationFn: () => cancelBooking(id, user?.email, token),
     onSuccess: () => {
-      setUserDetails((prev) => ({
-        ...prev,
-        bookings: prev.bookings.filter((booking) => booking?.id !== id), // Remove the cancelled booking
-      }));
+      // Update the context and local storage simultaneously
+      setUserDetails((prev) => {
+        const updatedBookings = prev.bookings.map((booking) =>
+          booking.id === id
+            ? { ...booking, bookingStatus: "expired", visitStatus: "cancelled" }
+            : booking
+        );
 
-      // Update localStorage without clearing everything
-      const storedBookings = JSON.parse(localStorage.getItem("bookings")) || [];
-      const updatedBookings = storedBookings.filter(
-        (booking) => booking.id !== id
-      );
-      localStorage.setItem("bookings", JSON.stringify(updatedBookings));
+        // Update local storage with the updated bookings
+        localStorage.setItem("bookings", JSON.stringify(updatedBookings));
+
+        return {
+          ...prev,
+          bookings: updatedBookings,
+        };
+      });
 
       toast.success("Booking cancelled successfully", {
         position: "bottom-right",
@@ -99,9 +76,12 @@ function Listing() {
 
   const bookedVisit =
     bookings?.find((booking) => booking.id === id) ||
-    userDetail?.bookedVisit?.find((visit) => visit.id === id);
-
-  // =======================================
+    userDetail?.bookedVisit?.find(
+      (visit) =>
+        visit.id === id &&
+        visit.bookingStatus === "active" &&
+        visit.visitStatus === "pending"
+    );
 
   if (isError) {
     return (
@@ -126,12 +106,12 @@ function Listing() {
   return (
     <div className="wrapper">
       <div className="flexColStart paddings innerWidth listing-container">
-        {/* like button */}
+        {/* Like button */}
         <LikeButton id={id} />
 
-        {/* main image */}
+        {/* Main image */}
         <img
-          src={selectedImage || data?.images[0]} // Use selectedImage or fallback to the first image
+          src={selectedImage || data?.images[0]}
           alt="main"
           className="main-image"
         />
@@ -142,8 +122,8 @@ function Listing() {
           {data?.images?.map((photo, index) => (
             <SwiperSlide key={index}>
               <div
-                onClick={() => setSelectedImage(photo)} // Update selectedImage on click
-                style={{ cursor: "pointer" }} // Add pointer cursor for better UX
+                onClick={() => setSelectedImage(photo)}
+                style={{ cursor: "pointer" }}
               >
                 <PropertyImages photos={photo} />
               </div>
@@ -153,18 +133,18 @@ function Listing() {
 
         {/* Listing details */}
         <div className="flexCenter listing-details">
-          {/* left */}
+          {/* Left */}
           <div className="flexColStart left">
-            {/* head */}
+            {/* Head */}
             <div className="flexStart head">
               <span className="primaryText">{data?.title}</span>
               <span className="lease-type">{data?.tenureType}</span>
               <span className="orangeText" style={{ fontSize: "1.5rem" }}>
                 ${data?.price}
-                {data?.tenureType === "Rent" && "/Month"}
+                {data?.tenureType === "rent" && "/Month"}
               </span>
             </div>
-            {/* facilities */}
+            {/* Facilities */}
             <div className="flexStart facilities">
               <div className="flexStart facility">
                 <FaShower size={20} color="#1F3E72" />
@@ -195,41 +175,103 @@ function Listing() {
             <div className="flexStart">
               <MdMap size={25} color="#1F3E72" />
               <span className="secondaryText">
-                {" "}
-                Ghana Post GPS Code:
-                <b>{data?.gpsCode}</b>
+                Ghana Post GPS Code: <b>{data?.gpsCode}</b>
               </span>
             </div>
-            {bookedVisit ? (
+            {user?.email === data?.userEmail || userDetail?.role === "admin" ? (
+              <div
+                className="flexStart"
+                style={{ display: "flex", gap: "5px" }}
+              >
+                <span>
+                  Online Status:{" "}
+                  <button
+                    style={{
+                      padding: "5px 8px",
+                      border: "none",
+                      borderRadius: "5px",
+                      backgroundColor: "green",
+                      color: "white",
+                      fontSize: "18px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {data?.status}
+                  </button>
+                </span>
+                <span>
+                  Availability:{" "}
+                  <button
+                    style={{
+                      padding: "5px 8px",
+                      border: "none",
+                      borderRadius: "5px",
+                      backgroundColor: "green",
+                      color: "white",
+                      fontSize: "18px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {data?.propertyStatus}
+                  </button>
+                </span>
+              </div>
+            ) : null}
+
+            {bookedVisit &&
+            (bookedVisit.bookingStatus === "active" ||
+              bookedVisit.visitStatus === "pending") ? (
               <>
                 <Button
                   type="default"
                   danger
                   style={{ width: "100%" }}
                   onClick={() => removeBooking()}
-                  disabled={cancelling} // Prevent multiple clicks while cancelling
+                  disabled={cancelling}
                 >
                   {cancelling ? "Cancelling Booking..." : "Cancel Booking"}
                 </Button>
-                <span>
-                  Your visit is already booked for {bookedVisit?.date}.
-                </span>
+                <div
+                  className="booking-details"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                  }}
+                >
+                  <p>
+                    <strong>Date:</strong> {bookedVisit.date}
+                  </p>
+                  <p>
+                    <strong>Time:</strong> {bookedVisit.time}
+                  </p>
+                  <p>
+                    <strong>Status:</strong> {bookedVisit.visitStatus}
+                  </p>
+                </div>
               </>
-            ) : user?.email === data?.userEmail ? (
+            ) : user?.email === data?.userEmail ||
+              userDetail?.role === "admin" ? (
               <>
                 <button
                   type="button"
                   className="button"
-                  onClick={handleEditListing}
-                 
+                  onClick={() => {
+                    if (!validateLogin()) {
+                      toast.error("You must log in to edit a listing.");
+                    } else {
+                      setEditModalOpened(true);
+                    }
+                  }}
                 >
-                  <FaEdit style={{width:"50px"}}/>
+                  <FaEdit style={{ width: "50px" }} />
                 </button>
 
                 <EditListing
                   opened={editModalOpened}
                   setOpened={setEditModalOpened}
                   propertyToEdit={data}
+                  currentUserDetails={userDetail}
                 />
               </>
             ) : (
@@ -241,6 +283,31 @@ function Listing() {
               </button>
             )}
 
+            {user?.email === data?.userEmail || userDetail?.role === "admin" ? (
+              <div className="documentations-section">
+                <h3>
+                  Documentations:{" "}
+                  <span style={{ fontWeight: "300" }}>Click to download</span>
+                </h3>
+                <ol>
+                  {data?.documentations?.map((document, index) => {
+                    const fileName = document.split("/").pop();
+                    return (
+                      <li key={index}>
+                        <a
+                          href={document}
+                          download={fileName}
+                          style={{ textDecoration: "none", color: "blue" }}
+                        >
+                          {fileName}
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            ) : null}
+
             <BookingModal
               opened={modalOpened}
               setOpened={setModalOpened}
@@ -248,10 +315,8 @@ function Listing() {
               email={user?.email}
             />
           </div>
-          {/* right */}
-
+          {/* Right */}
           <div className="map">
-            {/* <MapComponent city={data?.city} /> */}
             <Map
               address={data?.address}
               city={data?.city}

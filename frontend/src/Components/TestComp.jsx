@@ -482,3 +482,84 @@ export { storage };
 //     }
 //   }
 // }
+
+
+import React, { useContext, useState } from "react";
+import "./GetStarted.css";
+import UserDetailsContext from "../../context/UserDetailsContext";
+import { useAuth0 } from "@auth0/auth0-react";
+
+function GetStarted() {
+  const { userDetails } = useContext(UserDetailsContext);
+  const token = userDetails?.token;
+  const { user } = useAuth0();
+
+  const email = user?.email;
+
+  const [subscribed, setSubscribed] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      // Send the email to your backend
+      const response = await fetch("http://localhost:5000/api/user/subscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (response.ok) {
+        setSubscribed(true);
+        setError("");
+      } else {
+        const data = await response.json();
+        setError(data.error || "Failed to subscribe. Please try again later.");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      setError("An error occurred. Please try again later.");
+    }
+  };
+
+  return (
+    <section className="g-wrapper">
+      <div className="paddings innerWidth g-container">
+        <div className="flexColCenter inner-container">
+          <span className="primaryText">
+            Get Started with AetherSoft Realtors
+          </span>
+          <span className="secondaryText">
+            Subscribe and find super attractive price quotes from us <br /> Find
+            your dream property now
+          </span>
+
+          {subscribed ? (
+            <p className="success-message">Thank you for subscribing!</p>
+          ) : (
+            <form onSubmit={handleSubmit} className="subscription-form">
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <button type="submit" className="button">
+                Subscribe
+              </button>
+            </form>
+          )}
+
+          {error && <p className="error-message">{error}</p>}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+

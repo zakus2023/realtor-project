@@ -1,0 +1,83 @@
+.listing-container {
+    gap: 2rem;
+    position: relative;
+  }
+  
+  .listing-container .like {
+    position: absolute;
+    top: 3rem;
+    left: 3rem;
+    cursor: pointer;
+    z-index: 10; /* Ensure it's above other elements */
+  }
+  
+  .listing-container > img {
+    align-self: center;
+    max-height: 35rem;
+    width: 100%;
+    border-radius: 1rem;
+    object-fit: cover;
+  }
+  
+  .listing-details {
+    width: 100%;
+    gap: 2rem;
+    justify-content: space-between;
+    display: flex; /* Ensure flex is applied */
+  }
+  
+  .listing-details > div {
+    flex: 1;
+    gap: 1.5rem;
+  }
+  
+  .listing-details .left .head {
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .facilities {
+    gap: 1rem;
+    font-size: 0.9rem;
+    padding: 1rem;
+  }
+  
+  .facility {
+    gap: 0.5rem;
+  }
+  
+  /* Swiper styles */
+  .swiper {
+    width: 100%;
+    height: 100%;
+    margin: 2rem 0; /* Add margin for spacing */
+  }
+  
+  .swiper-slide {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .listing-details .button{
+    width: 100%;
+    margin-top: 1rem;
+  }
+  .listing-details .button:hover{
+    transform: scale(1.05);
+  }
+  
+  .lease-type{
+    padding: 0.5rem 1rem;
+    background: green;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    font-weight: 600;
+  }
+  
+  .editButton{
+    position: absolute;
+    top: 45px;
+    right: 50px;
+  }

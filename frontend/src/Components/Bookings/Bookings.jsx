@@ -32,13 +32,13 @@ function Bookings() {
 
   // Filter properties based on the listing IDs in the bookings
   const bookedProperties = properties?.filter((property) =>
-    userDetail?.bookedVisit?.some((booking) => booking.id === property.id)
+    userDetail?.bookedVisit?.some(
+      (booking) =>
+        booking.id === property.id &&
+        booking.visitStatus === "pending" &&
+        booking.bookingStatus === "active"
+    )
   );
-
-  // Debugging logs (remove in production)
-  console.log("userDetail: ", userDetail);
-  console.log("properties: ", properties);
-  console.log("bookedProperties: ", bookedProperties);
 
   if (isError) {
     return (

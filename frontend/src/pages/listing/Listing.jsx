@@ -46,12 +46,12 @@ function Listing() {
       enabled: !!user?.email && !!token,
     }
   );
+  console.log(userDetail)
 
   // Cancel booking mutation
   const { mutate: removeBooking, isLoading: cancelling } = useMutation({
     mutationFn: () => cancelBooking(id, user?.email, token),
     onSuccess: () => {
-      // Update the context and local storage simultaneously
       setUserDetails((prev) => {
         const updatedBookings = prev.bookings.map((booking) =>
           booking.id === id
@@ -59,8 +59,12 @@ function Listing() {
             : booking
         );
 
+        console.log("Updated Bookings:", updatedBookings); // Debugging
+
         // Update local storage with the updated bookings
         localStorage.setItem("bookings", JSON.stringify(updatedBookings));
+
+        console.log("Local Storage Updated:", localStorage.getItem("bookings")); // Debugging
 
         return {
           ...prev,
@@ -75,10 +79,10 @@ function Listing() {
   });
 
   const bookedVisit =
-    bookings?.find((booking) => booking.id === id) ||
+    bookings?.find((booking) => booking.propertyId === id) ||
     userDetail?.bookedVisit?.find(
       (visit) =>
-        visit.id === id &&
+        visit.propertyId === id &&
         visit.bookingStatus === "active" &&
         visit.visitStatus === "pending"
     );

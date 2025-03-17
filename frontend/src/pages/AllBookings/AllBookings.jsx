@@ -1,10 +1,10 @@
-import React, { useContext } from "react";
-import { Table, Select, Spin } from "antd";
-import { useQuery, useMutation } from "react-query";
-import { fetchAllBookings } from "../../utils/api";
+import React, { useContext, useState } from "react";
+import { Table, Select, Spin, Modal, Form, Input, Button, message } from "antd";
+import { useMutation, useQuery } from "react-query";
+import { fetchAllBookings, updateVisitStatusFromAdmin } from "../../utils/api";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { useAuth0 } from "@auth0/auth0-react";
 
 const { Option } = Select;
 
@@ -13,67 +13,101 @@ function AllBookings() {
   const token = userDetails.token;
   const navigate = useNavigate();
 
-  // Fetch all bookings using useQuery
-  const {
-    data,
-    isError,
-    isLoading,
-    refetch,
-  } = useQuery(
-    ["allBookings"], // Unique key for the query
-    () => fetchAllBookings(token), // Fetch all bookings with the token
-    { refetchOnWindowFocus: false } // Disable refetch on window focus
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+
+  const { data, isError, isLoading, refetch } = useQuery(
+    ["allBookings"],
+    () => fetchAllBookings(token),
+    { refetchOnWindowFocus: false }
   );
 
-  // Sort data so that "pending" bookings appear first
-  const sortedData = data
-    ?.map((booking) => ({ ...booking, key: booking.id })) // Add a unique key for Ant Design table
-    .sort((a, b) => (a.visitStatus === "pending" ? -1 : 1)); // Sort by "pending" first
+  // Mutation to update booking status
+  const { mutate: updateStatus } = useMutation(
+    ({ userEmail, bookingId, visitStatus }) =>
+      updateVisitStatusFromAdmin(userEmail, bookingId, visitStatus, token),
+    {
+      onSuccess: () => {
+        message.success("Booking status updated successfully");
+        refetch(); // Refetch data to reflect changes
+      },
+      onError: () => {
+        message.error("Failed to update booking status");
+      },
+    }
+  );
 
-  // Define columns for the Ant Design table
+  const handleStatusChange = (value) => {
+    const updatedBooking = { ...selectedBooking, visitStatus: value };
+    setSelectedBooking(updatedBooking);
+
+    // Trigger the mutation
+    updateStatus({
+      userEmail: selectedBooking.user?.email, // Use visitor's email from the booking
+      bookingId: selectedBooking.id,
+      visitStatus: value,
+    });
+  };
+
+  const sortedData = data
+    ?.map((booking) => ({ ...booking, key: booking.id }))
+    .sort((a, b) => (a.visitStatus === "pending" ? -1 : 1));
+
+  const handleViewBooking = (booking) => {
+    setSelectedBooking(booking);
+    setIsModalVisible(true);
+  };
+
+  const handleCancel = () => {
+    setIsModalVisible(false);
+  };
+
+  const getButtonStyle = (status) => {
+    switch (status) {
+      case "pending":
+        return { backgroundColor: "green", color: "white" };
+      case "completed":
+        return { backgroundColor: "blue", color: "white" };
+      case "cancelled":
+        return { backgroundColor: "red", color: "white" };
+      case "expired":
+        return { backgroundColor: "orange", color: "white" };
+      default:
+        return {};
+    }
+  };
+
   const columns = [
     {
       title: "Property",
-      dataIndex: "property", // Access the nested `property` object
+      dataIndex: "property",
       key: "title",
       render: (property) => (
         <span
           style={{ color: "#1890ff", cursor: "pointer" }}
-          onClick={() => navigate(`/listing/${property.id}`)} // Navigate using the property ID
+          onClick={() => navigate(`/listing/${property.id}`)}
         >
-          {property?.title || "N/A"} {/* Fallback if title is missing */}
+          {property?.title || "N/A"}
         </span>
       ),
     },
     {
-      title: "Address",
-      dataIndex: "property", // Access the nested `property` object
-      key: "address",
-      render: (property) => property?.address || "N/A", // Fallback if address is missing
-    },
-    {
       title: "GPS Code",
-      dataIndex: "property", // Access the nested `property` object
+      dataIndex: "property",
       key: "gpsCode",
-      render: (property) => property?.gpsCode || "N/A", // Fallback if GPS code is missing
-    },
-    {
-      title: "Visitor",
-      dataIndex: "user", // Access the nested `user` object
-      key: "name",
-      render: (user) => user?.name || "N/A", // Fallback if name is missing
+      render: (property) => property?.gpsCode || "N/A",
     },
     {
       title: "Visitor's Email",
-      dataIndex: "user", // Access the nested `user` object
+      dataIndex: "user",
       key: "email",
-      render: (user) => user?.email || "N/A", // Fallback if email is missing
+      render: (user) => user?.email || "N/A",
     },
     {
       title: "Visitor's Telephone",
-      dataIndex: "user", // Access the nested `user` object
+      dataIndex: "user",
       key: "telephone",
-      render: (user) => user?.telephone || "N/A", // Fallback if telephone is missing
+      render: (user) => user?.telephone || "N/A",
     },
     {
       title: "Date",
@@ -85,9 +119,20 @@ function AllBookings() {
       dataIndex: "time",
       key: "time",
     },
+    {
+      title: "Action",
+      key: "action",
+      render: (_, record) => (
+        <Button
+          onClick={() => handleViewBooking(record)}
+          style={getButtonStyle(record.visitStatus)}
+        >
+          View Booking
+        </Button>
+      ),
+    },
   ];
 
-  // Display error message if there's an error
   if (isError) {
     return (
       <div style={{ textAlign: "center", color: "white", marginTop: "20px" }}>
@@ -96,7 +141,6 @@ function AllBookings() {
     );
   }
 
-  // Display loading spinner while data is being fetched
   if (isLoading) {
     return (
       <div
@@ -140,13 +184,109 @@ function AllBookings() {
         }}
       >
         <Table
-          dataSource={sortedData} // Pass the sorted data to the table
-          columns={columns} // Define the columns for the table
-          rowKey="id" // Use the 'id' field as the unique key for each row
-          pagination={{ pageSize: 10 }} // Add pagination
+          dataSource={sortedData}
+          columns={columns}
+          rowKey="id"
+          pagination={{ pageSize: 10 }}
           style={{ width: "100%" }}
         />
+
+        {/* Legend for Color Coding */}
+        <div
+          style={{
+            marginTop: "20px",
+            display: "flex",
+            justifyContent: "flex-start",
+            alignItems: "center",
+            gap: "20px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div
+              style={{
+                width: "16px",
+                height: "16px",
+                backgroundColor: "green",
+                borderRadius: "4px",
+              }}
+            />
+            <span>Pending</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div
+              style={{
+                width: "16px",
+                height: "16px",
+                backgroundColor: "blue",
+                borderRadius: "4px",
+              }}
+            />
+            <span>Completed</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div
+              style={{
+                width: "16px",
+                height: "16px",
+                backgroundColor: "red",
+                borderRadius: "4px",
+              }}
+            />
+            <span>Cancelled</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div
+              style={{
+                width: "16px",
+                height: "16px",
+                backgroundColor: "orange",
+                borderRadius: "4px",
+              }}
+            />
+            <span>Expired</span>
+          </div>
+        </div>
       </div>
+
+      <Modal
+        title="Booking Details"
+        visible={isModalVisible}
+        onCancel={handleCancel}
+        footer={null}
+      >
+        {selectedBooking && (
+          <Form layout="vertical">
+            <Form.Item label="Visitor Name">
+              <Input value={selectedBooking.user?.name || "N/A"} disabled />
+            </Form.Item>
+            <Form.Item label="Visitor Email">
+              <Input value={selectedBooking.user?.email || "N/A"} disabled />
+            </Form.Item>
+            <Form.Item label="Visitor Address">
+              <Input value={selectedBooking.property?.address || "N/A"} disabled />
+            </Form.Item>
+            <Form.Item label="Date">
+              <Input value={selectedBooking.date} disabled />
+            </Form.Item>
+            <Form.Item label="Time">
+              <Input value={selectedBooking.time} disabled />
+            </Form.Item>
+            <Form.Item label="Payment Status">
+              <Input value="Pay on arrival" disabled />
+            </Form.Item>
+            <Form.Item label="Booking Status">
+              <Select
+                value={selectedBooking.visitStatus}
+                onChange={handleStatusChange}
+              >
+                <Option value="pending">Pending</Option>
+                <Option value="completed">Completed</Option>
+                <Option value="cancelled">Cancelled</Option>
+              </Select>
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
     </div>
   );
 }

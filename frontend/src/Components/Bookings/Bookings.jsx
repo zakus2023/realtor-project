@@ -34,7 +34,7 @@ function Bookings() {
   const bookedProperties = properties?.filter((property) =>
     userDetail?.bookedVisit?.some(
       (booking) =>
-        booking.id === property.id &&
+        booking.propertyId === property.id &&
         booking.visitStatus === "pending" &&
         booking.bookingStatus === "active"
     )

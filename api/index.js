@@ -6,16 +6,27 @@ import nodemailer from "nodemailer";
 import bodyParser from "body-parser";
 import { PrismaClient } from "@prisma/client";
 import dayjs from "dayjs"; // Import dayjs for date manipulation
+import cron from 'node-cron'
 
 // Import routes
 import userRoute from "./routes/userRoute.js";
 import residenceRouter from "./routes/residenceRoute.js";
+import { updateExpiredBookings } from "./controllers/userController.js";
 
 dotenv.config();
 const PORT = process.env.PORT || 5000;
 
 const app = express();
 const prisma = new PrismaClient();
+
+// Schedule the function to run every hour
+cron.schedule("0 * * * *", () => {
+  console.log("Running expired bookings check...");
+  updateExpiredBookings();
+});
+
+// Optionally, run it immediately when the server starts
+updateExpiredBookings();
 
 // Increase request body size limit
 app.use(express.json({ limit: "100mb" }));

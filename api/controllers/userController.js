@@ -3,6 +3,7 @@ import { prisma } from "../config/prismaConfig.js";
 import dayjs from "dayjs";
 import checkAndRemoveExpiredBookings from "../config/expiredBookings.js";
 import nodemailer from "nodemailer";
+import { nanoid } from "nanoid"; // For generating unique IDs
 
 // Nodemailer setup
 const sendEmail = async (to, subject, text) => {
@@ -151,11 +152,59 @@ export const fetchUserDetails = asyncHandler(async (req, res) => {
 
 // =====================================================================
 // book a visit
+// Function to generate a unique booking number
+const generateUniqueBookingNumber = async () => {
+  let bookingNumber = nanoid(8); // Generates a short, unique ID (8 characters)
+
+  // Fetch all users with non-empty bookedVisit arrays
+  const usersWithBookings = await prisma.user.findMany({
+    where: {
+      bookedVisit: {
+        isEmpty: false, // Ensure the array is not empty
+      },
+    },
+    select: {
+      bookedVisit: true, // Select only the bookedVisit field
+    },
+  });
+
+  // Manually check if the booking number exists in any user's bookedVisit array
+  const bookingNumberExists = usersWithBookings.some((user) =>
+    user.bookedVisit.some((visit) => visit.bookingNumber === bookingNumber)
+  );
+
+  // If the booking number exists, append the current timestamp to make it unique
+  if (bookingNumberExists) {
+    const timestamp = dayjs().format("YYYYMMDDHHmmss"); // Current time in a compact format
+    bookingNumber = `${bookingNumber}_${timestamp}`;
+  }
+
+  return bookingNumber;
+};
+
 export const bookVisit = asyncHandler(async (req, res) => {
   const { email, date, time, visitStatus } = req.body;
   const id = req.params.id;
 
   try {
+    // Validate date and time
+    const bookingDate = dayjs(date, "YYYY-MM-DD", true); // Strict parsing
+    const bookingTime = dayjs(time, "HH:mm", true); // Strict parsing
+
+    if (!bookingDate.isValid()) {
+      return res.status(400).json({ message: "Invalid date format. Expected format: YYYY-MM-DD" });
+    }
+
+    if (!bookingTime.isValid()) {
+      return res.status(400).json({ message: "Invalid time format. Expected format: HH:mm" });
+    }
+
+    // Check if the booking date is in the future
+    if (bookingDate.isBefore(dayjs(), "day")) {
+      return res.status(400).json({ message: "Booking date must be in the future" });
+    }
+
+    // Fetch user
     const user = await prisma.user.findUnique({
       where: { email },
       select: { bookedVisit: true, name: true, telephone: true, address: true },
@@ -165,9 +214,13 @@ export const bookVisit = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // Initialize bookedVisit as an empty array if it doesn't exist
+    user.bookedVisit = user.bookedVisit || [];
+
+    // Check if the user has already booked this property
     if (
       user.bookedVisit.some(
-        (visit) => visit.id === id && visit.bookingStatus === "active"
+        (visit) => visit.propertyId === id && visit.bookingStatus === "active"
       )
     ) {
       return res
@@ -175,57 +228,22 @@ export const bookVisit = asyncHandler(async (req, res) => {
         .json({ message: "You have already booked to visit this property" });
     }
 
-    const allUsers = await prisma.user.findMany({
-      select: { bookedVisit: true },
-    });
+    // Generate a unique booking number
+    const bookingNumber = await generateUniqueBookingNumber();
 
-    const existingBooking = allUsers.some((user) =>
-      user.bookedVisit.some(
-        (visit) => visit.id === id && visit.date === date && visit.time === time
-      )
-    );
-
-    if (existingBooking) {
-      return res.status(400).json({
-        message:
-          "This date and time are already booked for this property by another user. Please choose a different date or time.",
-      });
-    }
-
-    const conflictingBooking = allUsers.some((user) =>
-      user.bookedVisit.some((visit) => {
-        if (visit.id === id && visit.date === date) {
-          const existingTime = dayjs(visit.time, "HH:mm");
-          const newTime = dayjs(time, "HH:mm");
-          const timeDifference = Math.abs(newTime.diff(existingTime, "minute"));
-
-          return timeDifference < 60;
-        }
-        return false;
-      })
-    );
-
-    if (conflictingBooking) {
-      return res.status(400).json({
-        message:
-          "There is already a booking for this property within 60 minutes of the selected time by another user. Please choose a different time.",
-      });
-    }
-
+    // Add the new booking
     await prisma.user.update({
       where: { email },
       data: {
         bookedVisit: {
-          set: [
-            ...(user.bookedVisit || []),
-            {
-              id,
-              date,
-              time,
-              visitStatus: visitStatus || "pending",
-              bookingStatus: "active",
-            }, // Add bookingStatus here
-          ],
+          push: {
+            id: bookingNumber, // Use the booking number as the ID
+            propertyId: id,
+            date,
+            time,
+            visitStatus: visitStatus || "pending",
+            bookingStatus: "active",
+          },
         },
       },
     });
@@ -259,6 +277,7 @@ export const bookVisit = asyncHandler(async (req, res) => {
       - User: ${user.name}
       - Address: ${user.address}
       - Telephone: ${user.telephone}
+      - Booking Number: ${bookingNumber}
     `;
 
     // Email content for owner
@@ -268,10 +287,15 @@ export const bookVisit = asyncHandler(async (req, res) => {
       - Property: ${property.title}
       - Date: ${date}
       - Time: ${time}
+      - Booking Number: ${bookingNumber}
     `;
 
     // Send email to the user
-    await sendEmail(email, userAdminEmailSubject, userAdminEmailText);
+    try {
+      await sendEmail(email, userAdminEmailSubject, userAdminEmailText);
+    } catch (emailError) {
+      console.error("Failed to send email to user:", emailError);
+    }
 
     // Send email to all admins
     const adminEmails = admins.map((admin) => admin.email);
@@ -280,109 +304,81 @@ export const bookVisit = asyncHandler(async (req, res) => {
     );
 
     // Send email to the owner
-    await sendEmail(owner.email, ownerEmailSubject, ownerEmailText);
+    try {
+      await sendEmail(owner.email, ownerEmailSubject, ownerEmailText);
+    } catch (emailError) {
+      console.error("Failed to send email to owner:", emailError);
+    }
 
-    await Promise.all(adminEmailPromises);
+    try {
+      await Promise.all(adminEmailPromises);
+    } catch (emailError) {
+      console.error("Failed to send email to admins:", emailError);
+    }
 
-    res.json({ message: "You have booked to visit the property successfully" });
+    res.json({ message: "You have booked to visit the property successfully", bookingNumber });
   } catch (error) {
     console.error("Booking error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-// fetch all user bookings
-export const fetchUserBookings = asyncHandler(async (req, res) => {
-  const { email } = req.body;
-
+export const updateExpiredBookings = async () => {
   try {
-    // Check for expired bookings (if any)
-    await checkAndRemoveExpiredBookings(email);
+    console.log("Starting expired bookings check...");
 
-    const bookedVisits = await prisma.user.findUnique({
-      where: { email },
-      select: { bookedVisit: true },
-    });
-
-    res.status(200).send(bookedVisits);
-  } catch (error) {
-    console.error("Error fetching user bookings:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
-
-// fetch all bookings
-export const fetchAllBookings = asyncHandler(async (req, res) => {
-  try {
-    // Fetch all users with their bookedVisits and user details
+    // Fetch all users with non-empty bookedVisit arrays
     const users = await prisma.user.findMany({
+      where: {
+        bookedVisit: {
+          isEmpty: false, // Ensure the array is not empty
+        },
+      },
       select: {
         id: true,
-        name: true,
-        email: true,
-        telephone: true,
-        bookedVisit: true, // Fetch the bookedVisit field
+        bookedVisit: true,
       },
     });
 
-    // Combine all bookedVisits into a single array, including user details
-    const allBookings = users.flatMap((user) =>
-      user.bookedVisit.map((booking) => ({
-        ...booking,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          telephone: user.telephone,
-        },
-      }))
-    );
+    const currentDate = new Date();
+    let updatedCount = 0;
 
-    // If no bookings are found
-    if (allBookings.length === 0) {
-      return res
-        .status(200)
-        .json({ message: "No bookings found", bookings: [] });
-    }
+    // Loop through each user
+    for (const user of users) {
+      // Parse the bookedVisit array (since it's stored as JSON)
+      const bookedVisits = user.bookedVisit;
 
-    // Fetch property details for each booking
-    const bookingsWithProperties = await Promise.all(
-      allBookings.map(async (booking) => {
-        // Ensure booking is a valid object and has a propertyId
-        if (!booking || typeof booking !== "object" || !booking.id) {
-          console.warn("Invalid booking:", booking);
+      // Update expired bookings
+      const updatedBookings = bookedVisits.map((booking) => {
+        const visitDate = new Date(booking.date);
+
+        // Check if the visit date has passed and the booking is still active
+        if (visitDate < currentDate && booking.bookingStatus === "active") {
+          updatedCount++;
           return {
             ...booking,
-            property: null, // Indicate that the property is missing
+            bookingStatus: "expired",
+            visitStatus: "expired",
           };
         }
 
-        // Fetch the property associated with the booking
-        const property = await prisma.residency.findUnique({
-          where: {
-            id: booking.id, // Assuming booking has a propertyId field
-          },
-        });
+        return booking;
+      });
 
-        // Combine booking details with property details and user details
-        return {
-          ...booking,
-          property: property || null, // Handle case where property is not found
-        };
-      })
-    );
+      // Update the user's bookings in the database
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          bookedVisit: updatedBookings,
+        },
+      });
+    }
 
-    // Return all bookings with their respective properties and user details
-    res.status(200).json({ bookings: bookingsWithProperties });
+    console.log(`Updated ${updatedCount} expired bookings.`);
   } catch (error) {
-    // Handle unexpected errors
-    res.status(500).json({
-      message: "An error occurred while fetching bookings",
-      error: error.message,
-    });
+    console.error("Error updating expired bookings:", error);
   }
-});
-// cancel booking
+};
 
 export const cancelBooking = asyncHandler(async (req, res) => {
   const { email } = req.body;
@@ -401,7 +397,7 @@ export const cancelBooking = asyncHandler(async (req, res) => {
     // Find the index of the booking with the matching id, bookingStatus === "active", and visitStatus === "pending"
     const index = user.bookedVisit.findIndex(
       (visit) =>
-        visit.id === id &&
+        visit.propertyId === id &&
         visit.bookingStatus === "active" &&
         visit.visitStatus === "pending"
     );
@@ -488,6 +484,101 @@ export const cancelBooking = asyncHandler(async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+// fetch all user bookings
+export const fetchUserBookings = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    // Check for expired bookings (if any)
+    await checkAndRemoveExpiredBookings(email);
+
+    const bookedVisits = await prisma.user.findUnique({
+      where: { email },
+      select: { bookedVisit: true },
+    });
+  
+    res.status(200).send("booked visits: ",bookedVisits);
+  } catch (error) {
+    console.error("Error fetching user bookings:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+
+// fetch all bookings
+export const fetchAllBookings = asyncHandler(async (req, res) => {
+  try {
+    // Fetch all users with their bookedVisits and user details
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        telephone: true,
+        bookedVisit: true, // Fetch the bookedVisit field
+      },
+    });
+
+    // Combine all bookedVisits into a single array, including user details
+    const allBookings = users.flatMap((user) =>
+      user.bookedVisit.map((booking) => ({
+        ...booking,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          telephone: user.telephone,
+        },
+      }))
+    );
+
+    // If no bookings are found
+    if (allBookings.length === 0) {
+      return res
+        .status(200)
+        .json({ message: "No bookings found", bookings: [] });
+    }
+
+    // Fetch property details for each booking
+    const bookingsWithProperties = await Promise.all(
+      allBookings.map(async (booking) => {
+        // Ensure booking is a valid object and has a propertyId
+        if (!booking || typeof booking !== "object" || !booking.propertyId) {
+          console.warn("Invalid booking:", booking);
+          return {
+            ...booking,
+            property: null, // Indicate that the property is missing
+          };
+        }
+
+        // Fetch the property associated with the booking
+        const property = await prisma.residency.findUnique({
+          where: {
+            id: booking.propertyId, // Assuming booking has a propertyId field
+          },
+        });
+
+        // Combine booking details with property details and user details
+        return {
+          ...booking,
+          property: property || null, // Handle case where property is not found
+        };
+      })
+    );
+
+    // Return all bookings with their respective properties and user details
+    res.status(200).json({ bookings: bookingsWithProperties });
+  } catch (error) {
+    // Handle unexpected errors
+    res.status(500).json({
+      message: "An error occurred while fetching bookings",
+      error: error.message,
+    });
+  }
+});
+// cancel booking
+
 // ================================================
 // update favourites/ add and remove
 
@@ -769,60 +860,46 @@ export const fetchAllSubscriptions = asyncHandler(async (req, res) => {
   }
 });
 
-// update expired booking
-export const updateExpiredBookings = asyncHandler(async (req, res) => {
+// Update visitStatus for a specific booking
+export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
+  const { userEmail, bookingId } = req.params;
+  const { visitStatus } = req.body;
+
   try {
-    const now = new Date();
-    const currentDateTime = dayjs(now).format("YYYY-MM-DD HH:mm");
-
-    // Fetch all users with bookedVisit entries
-    const users = await prisma.user.findMany({
-      where: {
-        bookedVisit: {
-          isEmpty: false, // Only fetch users with bookedVisit entries
-        },
-      },
-      select: {
-        id: true,
-        bookedVisit: true,
-      },
+    // Find the user by email
+    const user = await prisma.user.findUnique({
+      where: { email: userEmail },
     });
-    console.log(users)
 
-    let totalUpdated = 0;
-
-    // Iterate through each user
-    for (const user of users) {
-      const updatedBookings = user.bookedVisit.map((booking) => {
-        const bookingDate = dayjs(booking.date).format("YYYY-MM-DD");
-        const bookingTime = dayjs(booking.time).format("HH:mm");
-
-        // Check if the booking is expired
-        if (
-          bookingDate < dayjs(currentDateTime).format("YYYY-MM-DD") ||
-          (bookingDate === dayjs(currentDateTime).format("YYYY-MM-DD") &&
-            bookingTime <= dayjs(currentDateTime).format("HH:mm"))
-        ) {
-          // Update the booking status
-          booking.visitStatus = "cancelled";
-          booking.bookingStatus = "expired";
-          totalUpdated++;
-        }
-        return booking;
-      });
-      console.log(updatedBookings)
-
-      // Save the updated bookings back to the user
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { bookedVisit: updatedBookings },
-      });
+    if (!user) {
+      console.error("User not found:", userEmail);
+      return res.status(404).json({ error: "User not found" });
     }
 
-    console.log(`Updated ${totalUpdated} expired bookings`);
-    res.status(200).json({ message: "Expired bookings updated successfully" });
+    // Find the booking in the bookedVisit array
+    const bookedVisit = user.bookedVisit;
+    const bookingIndex = bookedVisit.findIndex((booking) => booking.id === bookingId);
+
+    if (bookingIndex === -1) {
+      console.error("Booking not found:", bookingId);
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    // Update the visitStatus
+    bookedVisit[bookingIndex].visitStatus = visitStatus;
+
+    // Save the updated bookedVisit array
+    const updatedUser = await prisma.user.update({
+      where: { email: userEmail },
+      data: { bookedVisit },
+    });
+
+    console.log("Booking status updated successfully:", updatedUser);
+    res.status(200).json(updatedUser);
   } catch (error) {
-    console.error("Error updating expired bookings:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error("Error updating booking status:", error);
+    res.status(500).json({ error: "Failed to update booking status" });
   }
 });
+
+

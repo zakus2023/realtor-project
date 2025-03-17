@@ -13,7 +13,7 @@ import {
   fetchUserFavourites,
   subscribe,
   unSubscribe,
-  updateExpiredBookings,
+  updateVisitStatusFromAdmin,
   userFavourites,
 } from "../controllers/userController.js";
 import jwtCheck from "../config/auth0Config.js";
@@ -34,7 +34,7 @@ router.post("/subscribe", jwtCheck, subscribe);
 router.get("/getSubscription", jwtCheck, fetchSingleSubscriptions)
 router.delete("/unsubscribe", jwtCheck, unSubscribe)
 router.get("/fetchAllSubscriptions", jwtCheck, fetchAllSubscriptions)
-router.post("/update-expired-bookings", updateExpiredBookings)
+router.put("/:userEmail/bookings/:bookingId", jwtCheck, updateVisitStatusFromAdmin)
 
 
 export default router;

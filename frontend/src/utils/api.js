@@ -93,10 +93,9 @@ export const bookVisit = async ({ date, time, listingId, email, token }) => {
       {
         email,
         id: listingId,
-        date: dayjs(date).format("DD/MM/YYYY"),
-        time: dayjs(time).format("HH:mm"),
-        visitStatus: "pending",
-        bookingStatus: "active", // Add bookingStatus here
+        date: dayjs(date).format("YYYY-MM-DD"), // Format date correctly
+        time: dayjs(time).format("HH:mm"), // Format time correctly
+        visitStatus: "pending", // Default status
       },
       {
         headers: {
@@ -118,7 +117,7 @@ export const bookVisit = async ({ date, time, listingId, email, token }) => {
 // cancel Booking
 export const cancelBooking = async (id, email, token) => {
   try {
-    const response = await api.post(
+    const response = api.post(
       `/api/user/cancelBooking/${id}`,
       {
         email,
@@ -129,12 +128,6 @@ export const cancelBooking = async (id, email, token) => {
         },
       }
     );
-
-    if (response.status === 200) {
-      return response;
-    } else {
-      throw new Error("Failed to cancel booking");
-    }
   } catch (error) {
     toast.error("Something went wrong");
     throw error;
@@ -399,5 +392,30 @@ export const fetchAllSubscriptions = async (token) => {
   } catch (error) {
     toast.error("Failed to load subscriptions");
     throw error;
+  }
+};
+
+export const updateVisitStatusFromAdmin = async (
+  userEmail,
+  bookingId,
+  visitStatus,
+  token
+) => {
+
+  try {
+    const response = await api.put(
+      `/api/user/${userEmail}/bookings/${bookingId}`,
+      { visitStatus }, // Request body
+      {
+        headers: {
+          Authorization: `Bearer ${token}`, // Headers
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error updating booking status:", error.response?.data || error.message);
+    toast.error("Failed to update user bookings"); // Show error notification
+    throw error; // Rethrow the error for further handling
   }
 };

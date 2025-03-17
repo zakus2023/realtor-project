@@ -14,27 +14,6 @@ import ContactModal from "../ContactModal/ContactModal";
 
 function Header() {
 
-  useEffect(() => {
-    const updateExpiredBookings = async () => {
-      try {
-        const response = await fetch("http://localhost:5000/api/user/update-expired-bookings", {
-          method: "PUT",
-        });
-  
-        if (response.ok) {
-          console.log("Expired bookings updated successfully");
-        } else {
-          console.error("Failed to update expired bookings");
-        }
-      } catch (error) {
-        console.error("Error updating expired bookings:", error);
-      }
-    };
-  
-    updateExpiredBookings();
-  }, []); // Empty dependency array ensures this runs only once
-  
-
   const [menuOpened, setMenuOpened] = useState(false);
   const [modalOpened, setModalOpened] = useState(false);
   const [contactModalOpened, setContactModalOpened] = useState(false); // State for contact modal

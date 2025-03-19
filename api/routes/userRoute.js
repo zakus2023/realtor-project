@@ -2,6 +2,7 @@ import express from "express";
 import {
   bookVisit,
   cancelBooking,
+  createPaymentIntent,
   createUser,
   editUserDetails,
   fetchAllBookings,
@@ -11,6 +12,7 @@ import {
   fetchUserBookings,
   fetchUserDetails,
   fetchUserFavourites,
+  getPaymentStatus,
   subscribe,
   unSubscribe,
   updateVisitStatusFromAdmin,
@@ -35,6 +37,9 @@ router.get("/getSubscription", jwtCheck, fetchSingleSubscriptions)
 router.delete("/unsubscribe", jwtCheck, unSubscribe)
 router.get("/fetchAllSubscriptions", jwtCheck, fetchAllSubscriptions)
 router.put("/:userEmail/bookings/:bookingId", jwtCheck, updateVisitStatusFromAdmin)
+router.post("/stripe/create-payment-intent", createPaymentIntent)
+router.get("/payment-status", getPaymentStatus);
+//router.post("/initiate", initiatePaystackPaymentController);
 
 
 export default router;

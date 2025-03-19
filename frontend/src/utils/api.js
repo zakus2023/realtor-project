@@ -86,16 +86,18 @@ export const createUser = async (email, token) => {
 
 // book a visit
 
-export const bookVisit = async ({ date, time, listingId, email, token }) => {
+export const bookVisit = async ({ date, time, listingId, email, token, paymentMethod, paymentStatus }) => {
   try {
     const response = await api.post(
       `/api/user/bookVisit/${listingId}`,
       {
         email,
         id: listingId,
-        date: dayjs(date).format("YYYY-MM-DD"), // Format date correctly
-        time: dayjs(time).format("HH:mm"), // Format time correctly
-        visitStatus: "pending", // Default status
+        date: dayjs(date).format("YYYY-MM-DD"),
+        time: dayjs(time).format("HH:mm"),
+        visitStatus: "pending",
+        paymentStatus, // Include payment status
+        paymentMethod, // Include payment method
       },
       {
         headers: {

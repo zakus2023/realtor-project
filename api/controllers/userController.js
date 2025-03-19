@@ -4,6 +4,21 @@ import dayjs from "dayjs";
 import checkAndRemoveExpiredBookings from "../config/expiredBookings.js";
 import nodemailer from "nodemailer";
 import { nanoid } from "nanoid"; // For generating unique IDs
+import Stripe from "stripe";
+import paypal from "@paypal/checkout-server-sdk"; // Import PayPal SDK
+
+
+// PayPal client setup
+const paypalClient = new paypal.core.PayPalHttpClient(
+  new paypal.core.SandboxEnvironment(
+    "ASVLCVJ4a62t_sauBvKf93ifWTkn-4uooOK6Sdnx57USnTnkMADS3mja6sa1zdd8GfuoLUvPQR0aiowv", // Replace with your PayPal client ID
+    "EHaECb1kuoJRbrjjbBEbyq5OCpaSODl5n7Jy8UQVj_Uz4KCKvvvO97pJSSNv4FTL2mkjN99sx7B4VO8S" // Replace with your PayPal secret
+  )
+);
+
+const stripe = new Stripe(
+  "sk_test_51N5quMDHDtaIvDO2D6yFfk02OWESvcXd8jKNJ0V5yQ6BbvuQaN2fEg5rH1S6ywh0Aunqq3yuBZpqtkwDM6y2JsAg00rrnsu5xi"
+);
 
 // Nodemailer setup
 const sendEmail = async (to, subject, text) => {
@@ -151,6 +166,47 @@ export const fetchUserDetails = asyncHandler(async (req, res) => {
 });
 
 // =====================================================================
+
+// STRIPE PAYMENT INTENT
+// ===================================
+export const createPaymentIntent = asyncHandler(async (req, res) => {
+  const { paymentMethodId } = req.body;
+
+  try {
+    // Create a PaymentIntent with a return_url
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: 1000, // Amount in cents (e.g., $10.00)
+      currency: "usd",
+      payment_method: paymentMethodId,
+      confirmation_method: "manual",
+      confirm: true,
+      return_url: "http://localhost:5173/payment-success", // Replace with your frontend success URL
+    });
+
+    // Return success response
+    res.json({ success: true, paymentIntent });
+  } catch (error) {
+    console.error("Error creating payment intent:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+export const getPaymentStatus = asyncHandler(async (req, res) => {
+  const { payment_intent: paymentIntentId } = req.query;
+
+  try {
+    // Retrieve the PaymentIntent from Stripe
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    // Return the PaymentIntent status
+    res.json({ success: true, paymentIntent });
+  } catch (error) {
+    console.error("Error retrieving payment intent:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+// ===============================================================================================
+
 // book a visit
 // Function to generate a unique booking number
 const generateUniqueBookingNumber = async () => {
@@ -183,7 +239,16 @@ const generateUniqueBookingNumber = async () => {
 };
 
 export const bookVisit = asyncHandler(async (req, res) => {
-  const { email, date, time, visitStatus } = req.body;
+  const {
+    email,
+    date,
+    time,
+    visitStatus,
+    paymentMethod,
+    paymentStatus,
+    paymentMethodId,
+    paypalOrderId, // Add PayPal order ID to the request body
+  } = req.body;
   const id = req.params.id;
 
   try {
@@ -192,16 +257,22 @@ export const bookVisit = asyncHandler(async (req, res) => {
     const bookingTime = dayjs(time, "HH:mm", true); // Strict parsing
 
     if (!bookingDate.isValid()) {
-      return res.status(400).json({ message: "Invalid date format. Expected format: YYYY-MM-DD" });
+      return res
+        .status(400)
+        .json({ message: "Invalid date format. Expected format: YYYY-MM-DD" });
     }
 
     if (!bookingTime.isValid()) {
-      return res.status(400).json({ message: "Invalid time format. Expected format: HH:mm" });
+      return res
+        .status(400)
+        .json({ message: "Invalid time format. Expected format: HH:mm" });
     }
 
     // Check if the booking date is in the future
     if (bookingDate.isBefore(dayjs(), "day")) {
-      return res.status(400).json({ message: "Booking date must be in the future" });
+      return res
+        .status(400)
+        .json({ message: "Booking date must be in the future" });
     }
 
     // Fetch user
@@ -228,6 +299,51 @@ export const bookVisit = asyncHandler(async (req, res) => {
         .json({ message: "You have already booked to visit this property" });
     }
 
+    // Handle Stripe payment confirmation
+    if (paymentMethod === "stripe" && paymentMethodId) {
+      try {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: 1000, // Amount in cents (e.g., $10.00)
+          currency: "usd",
+          payment_method: paymentMethodId,
+          confirmation_method: "manual",
+          confirm: true,
+        });
+
+        if (paymentIntent.status !== "succeeded") {
+          return res
+            .status(400)
+            .json({ message: "Payment failed. Please try again." });
+        }
+      } catch (stripeError) {
+        console.error("Stripe payment error:", stripeError);
+        return res
+          .status(400)
+          .json({ message: "Payment failed. Please try again." });
+      }
+    }
+
+    // Handle PayPal payment confirmation
+    if (paymentMethod === "paypal" && paypalOrderId) {
+      try {
+        const request = new paypal.orders.OrdersCaptureRequest(paypalOrderId);
+        request.requestBody({});
+
+        const response = await paypalClient.execute(request);
+
+        if (response.result.status !== "COMPLETED") {
+          return res
+            .status(400)
+            .json({ message: "PayPal payment failed. Please try again." });
+        }
+      } catch (paypalError) {
+        console.error("PayPal payment error:", paypalError);
+        return res
+          .status(400)
+          .json({ message: "PayPal payment failed. Please try again." });
+      }
+    }
+
     // Generate a unique booking number
     const bookingNumber = await generateUniqueBookingNumber();
 
@@ -243,6 +359,9 @@ export const bookVisit = asyncHandler(async (req, res) => {
             time,
             visitStatus: visitStatus || "pending",
             bookingStatus: "active",
+            paymentMethod, // Include payment method
+            paymentStatus:
+              paymentMethod === "pay_on_arrival" ? "pending" : "paid", // Update payment status
           },
         },
       },
@@ -278,6 +397,8 @@ export const bookVisit = asyncHandler(async (req, res) => {
       - Address: ${user.address}
       - Telephone: ${user.telephone}
       - Booking Number: ${bookingNumber}
+      - Payment Method: ${paymentMethod}
+      - Payment Status: ${paymentStatus}
     `;
 
     // Email content for owner
@@ -288,6 +409,8 @@ export const bookVisit = asyncHandler(async (req, res) => {
       - Date: ${date}
       - Time: ${time}
       - Booking Number: ${bookingNumber}
+      - Payment Method: ${paymentMethod}
+      - Payment Status: ${paymentStatus}
     `;
 
     // Send email to the user
@@ -316,13 +439,15 @@ export const bookVisit = asyncHandler(async (req, res) => {
       console.error("Failed to send email to admins:", emailError);
     }
 
-    res.json({ message: "You have booked to visit the property successfully", bookingNumber });
+    res.json({
+      message: "You have booked to visit the property successfully",
+      bookingNumber,
+    });
   } catch (error) {
     console.error("Booking error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
 export const updateExpiredBookings = async () => {
   try {
     console.log("Starting expired bookings check...");
@@ -497,14 +622,13 @@ export const fetchUserBookings = asyncHandler(async (req, res) => {
       where: { email },
       select: { bookedVisit: true },
     });
-  
-    res.status(200).send("booked visits: ",bookedVisits);
+
+    res.status(200).send("booked visits: ", bookedVisits);
   } catch (error) {
     console.error("Error fetching user bookings:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
 
 // fetch all bookings
 export const fetchAllBookings = asyncHandler(async (req, res) => {
@@ -878,7 +1002,9 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
 
     // Find the booking in the bookedVisit array
     const bookedVisit = user.bookedVisit;
-    const bookingIndex = bookedVisit.findIndex((booking) => booking.id === bookingId);
+    const bookingIndex = bookedVisit.findIndex(
+      (booking) => booking.id === bookingId
+    );
 
     if (bookingIndex === -1) {
       console.error("Booking not found:", bookingId);
@@ -901,5 +1027,3 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
     res.status(500).json({ error: "Failed to update booking status" });
   }
 });
-
-

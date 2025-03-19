@@ -73,6 +73,7 @@ app.post("/api/send-email", (req, res) => {
 app.use("/api/user", userRoute);
 app.use("/api/residence", residenceRouter);
 
+
 // Start server
 app.listen(PORT, () => {
   console.log("Server is listening on port " + PORT);

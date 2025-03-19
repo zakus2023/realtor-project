@@ -7952,7 +7952,339 @@ Monitor logs for any errors related to payment processing or refunds.
 
 This step-by-step guide ensures that Pay on Arrival is fully integrated into your booking system alongside other payment methods.
 
+MTN MOMO
+=================================================
+Integrating MTN Mobile Money into your application involves several steps. MTN Mobile Money is a popular mobile payment system in Africa, and integrating it typically requires working with MTN's APIs or a third-party payment gateway that supports MTN Mobile Money. Below is a step-by-step guide to integrating MTN Mobile Money into your application.
 
+Step 1: Choose a Payment Gateway
+MTN Mobile Money does not provide a direct public API for developers. Instead, you need to use a third-party payment gateway that supports MTN Mobile Money. Some popular options include:
 
+Flutterwave (supports MTN Mobile Money in multiple countries)
+
+Paystack (supports MTN Mobile Money in specific countries)
+
+Hubtel (supports MTN Mobile Money in Ghana)
+
+For this guide, we'll use Flutterwave as an example.
+
+Step 2: Sign Up for a Flutterwave Account
+Go to the Flutterwave website and sign up for an account.
+
+Verify your email and complete the onboarding process.
+
+Obtain your API keys (public and secret keys) from the Flutterwave dashboard.
+
+Step 3: Install Flutterwave SDK
+Install the Flutterwave SDK in your frontend and backend.
+
+Frontend (React)
+bash
+Copy
+npm install flutterwave-react-v3
+Backend (Node.js)
+bash
+Copy
+npm install flutterwave-node-v3
+Step 4: Set Up Flutterwave in the Frontend
+In your React frontend, create a component to handle MTN Mobile Money payments using Flutterwave.
+
+Example: MTNMobileMoneyPayment.js
+javascript
+Copy
+import React from "react";
+import { useFlutterwave, closePaymentModal } from "flutterwave-react-v3";
+
+const MTNMobileMoneyPayment = ({ onSuccess, onFailure }) => {
+  const config = {
+    public_key: "YOUR_FLUTTERWAVE_PUBLIC_KEY", // Replace with your Flutterwave public key
+    tx_ref: Date.now(), // Unique transaction reference
+    amount: 1000, // Amount in the smallest currency unit (e.g., 1000 = 10.00 USD)
+    currency: "USD", // Currency code
+    payment_options: "mobilemoney", // Specify payment method
+    customer: {
+      email: "user@example.com", // Replace with the user's email
+      phone_number: "233123456789", // Replace with the user's phone number (MTN Mobile Money number)
+      name: "John Doe", // Replace with the user's name
+    },
+    customizations: {
+      title: "AetherSoft Realtor",
+      description: "Payment for property visit booking",
+      logo: "https://your-logo-url.com/logo.png", // Replace with your logo URL
+    },
+  };
+
+  const handleFlutterwavePayment = useFlutterwave(config);
+
+  const handlePayment = () => {
+    handleFlutterwavePayment({
+      callback: (response) => {
+        if (response.status === "successful") {
+          onSuccess(); // Trigger success callback
+        } else {
+          onFailure(); // Trigger failure callback
+        }
+        closePaymentModal(); // Close the payment modal
+      },
+      onClose: () => {
+        onFailure(); // Trigger failure callback if the user closes the modal
+      },
+    });
+  };
+
+  return (
+    <Button type="primary" onClick={handlePayment}>
+      Pay with MTN Mobile Money
+    </Button>
+  );
+};
+
+export default MTNMobileMoneyPayment;
+Step 5: Set Up Flutterwave in the Backend
+In your Node.js backend, verify the payment using Flutterwave's API.
+
+Example: Verify Payment Endpoint
+javascript
+Copy
+import Flutterwave from "flutterwave-node-v3";
+
+const flutterwave = new Flutterwave(
+  "YOUR_FLUTTERWAVE_PUBLIC_KEY", // Replace with your Flutterwave public key
+  "YOUR_FLUTTERWAVE_SECRET_KEY" // Replace with your Flutterwave secret key
+);
+
+export const verifyPayment = asyncHandler(async (req, res) => {
+  const { transactionId } = req.body;
+
+  try {
+    // Verify the payment using Flutterwave's API
+    const response = await flutterwave.Transaction.verify({ id: transactionId });
+
+    if (
+      response.data.status === "successful" &&
+      response.data.amount === response.data.charged_amount
+    ) {
+      // Payment is successful
+      res.json({ success: true, message: "Payment verified successfully" });
+    } else {
+      // Payment failed
+      res.status(400).json({ success: false, message: "Payment verification failed" });
+    }
+  } catch (error) {
+    console.error("Payment verification error:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+Step 6: Update the Booking Modal
+Integrate the MTNMobileMoneyPayment component into your booking modal.
+
+Example: BookingModal.js
+javascript
+Copy
+import React, { useContext, useState } from "react";
+import { Button, DatePicker, Modal, TimePicker, Select } from "antd";
+import UserDetailsContext from "../../context/UserDetailsContext";
+import { toast } from "react-toastify";
+import dayjs from "dayjs";
+import { useMutation } from "react-query";
+import { bookVisit } from "../../utils/api";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import StripePayment from "../StripePayment/StripePayment";
+import MTNMobileMoneyPayment from "../MTNPayment/MTNMobileMoneyPayment";
+
+// Stripe setup
+const stripePromise = loadStripe("pk_test_51N5quMDHDtaIvDO2nmKU2EZnqpoZvT3QUWUFzD79fu6Ht9iPxR2zrv5NJvxMZ98s1lTeRkmuXvTLQz82PEpcHnQB00lIceFH6V");
+
+// PayPal setup
+const paypalOptions = {
+  "client-id": "ASVLCVJ4a62t_sauBvKf93ifWTkn-4uooOK6Sdnx57USnTnkMADS3mja6sa1zdd8GfuoLUvPQR0aiowv", // Replace with your actual PayPal client ID
+  currency: "USD",
+};
+
+function BookingModal({ opened, setOpened, email, listingId }) {
+  const [date, setDate] = useState(null);
+  const [time, setTime] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState("pay_on_arrival");
+  const [paymentStatus, setPaymentStatus] = useState("pending");
+  const [paypalOrderId, setPaypalOrderId] = useState(null);
+
+  const {
+    userDetails: { token },
+    setUserDetails,
+  } = useContext(UserDetailsContext);
+
+  const { mutate, isLoading } = useMutation({
+    mutationFn: ({ paymentMethod, paypalOrderId }) =>
+      bookVisit({
+        date,
+        time,
+        listingId,
+        email,
+        token,
+        paymentMethod,
+        paymentStatus: paymentMethod === "pay_on_arrival" ? "pending" : "paid",
+        paypalOrderId,
+      }),
+    onSuccess: () => handleBookingSuccess(),
+    onError: ({ response }) => toast.error(response.data.message),
+    onSettled: () => setOpened(false),
+  });
+
+  const handleBookingSuccess = () => {
+    toast.success("You have booked your visit", {
+      position: "bottom-right",
+    });
+
+    setUserDetails((prev) => ({
+      ...prev,
+      bookings: [
+        ...prev.bookings,
+        {
+          id: listingId,
+          date: dayjs(date).format("DD/MM/YYYY"),
+          time: dayjs(time).format("HH:mm"),
+          visitStatus: "pending",
+          bookingStatus: "active",
+          paymentStatus,
+          paymentMethod,
+        },
+      ],
+    }));
+  };
+
+  const handlePaymentSuccess = async (method, orderId = null) => {
+    setPaymentStatus("paid");
+    setPaymentMethod(method);
+    if (method === "paypal") {
+      setPaypalOrderId(orderId);
+    }
+    await mutate({ paymentMethod: method, paypalOrderId: orderId });
+  };
+
+  const handlePaymentFailure = () => {
+    toast.error("Payment failed. Please try again.");
+  };
+
+  return (
+    <Modal
+      open={opened}
+      onCancel={() => setOpened(false)}
+      title="Book your visit"
+      footer={null}
+      centered
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        {/* Date Picker */}
+        <DatePicker
+          value={date}
+          onChange={(date) => setDate(date)}
+          disabledDate={(current) => current && current < dayjs().startOf("day")}
+          style={{ width: "100%" }}
+        />
+
+        {/* Time Picker */}
+        <TimePicker
+          value={time}
+          onChange={(time) => setTime(time)}
+          format="HH:mm"
+          style={{ width: "100%" }}
+        />
+
+        {/* Payment Options */}
+        <div>
+          <h4>Select Payment Method</h4>
+          <Select
+            value={paymentMethod}
+            onChange={(value) => setPaymentMethod(value)}
+            style={{ width: "100%" }}
+          >
+            <Select.Option value="pay_on_arrival">Pay on Arrival</Select.Option>
+            <Select.Option value="stripe">Stripe</Select.Option>
+            <Select.Option value="paypal">PayPal</Select.Option>
+            <Select.Option value="mtn_mobile_money">MTN Mobile Money</Select.Option>
+          </Select>
+        </div>
+
+        {/* Stripe Payment */}
+        {paymentMethod === "stripe" && (
+          <Elements stripe={stripePromise}>
+            <StripePayment
+              onSuccess={() => handlePaymentSuccess("stripe")}
+              onFailure={handlePaymentFailure}
+            />
+          </Elements>
+        )}
+
+        {/* PayPal Payment */}
+        {paymentMethod === "paypal" && (
+          <PayPalScriptProvider options={paypalOptions}>
+            <PayPalButtons
+              createOrder={(data, actions) => {
+                return actions.order.create({
+                  purchase_units: [
+                    {
+                      amount: {
+                        value: "10.00", // Replace with actual amount
+                      },
+                    },
+                  ],
+                });
+              }}
+              onApprove={(data, actions) => {
+                return actions.order.capture().then((details) => {
+                  handlePaymentSuccess("paypal", details.id); // Pass PayPal order ID
+                });
+              }}
+              onError={handlePaymentFailure}
+            />
+          </PayPalScriptProvider>
+        )}
+
+        {/* MTN Mobile Money Payment */}
+        {paymentMethod === "mtn_mobile_money" && (
+          <MTNMobileMoneyPayment
+            onSuccess={() => handlePaymentSuccess("mtn_mobile_money")}
+            onFailure={handlePaymentFailure}
+          />
+        )}
+
+        {/* Book Visit Button */}
+        <Button
+          type="primary"
+          disabled={
+            !date ||
+            !time ||
+            isLoading ||
+            (paymentMethod !== "pay_on_arrival" && paymentStatus !== "paid")
+          }
+          loading={isLoading}
+          onClick={() => mutate({ paymentMethod, paypalOrderId })}
+          style={{ width: "100%", marginTop: "1rem" }}
+        >
+          Book visit
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+export default BookingModal;
+Step 7: Test the Integration
+MTN Mobile Money:
+
+Use a test MTN Mobile Money number to simulate payments.
+
+Ensure the payment is verified in the backend.
+
+Stripe and PayPal:
+
+Test the Stripe and PayPal payment flows as usual.
+
+Pay on Arrival:
+
+Ensure the pay_on_arrival option works as expected.
+
+This step-by-step guide ensures a seamless integration of MTN Mobile Money into your application. Let me know if you need further assistance!
 
    

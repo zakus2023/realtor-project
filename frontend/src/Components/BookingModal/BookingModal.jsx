@@ -9,14 +9,14 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import StripePayment from "../StripePayment/StripePayment";
-import MTNMobileMoneyPayment from "../MTNPayment/MTNMobileMoneyPayment";
+import PaystackPayment from "../MTNPayment/PaystackPayment";
 
-// Stripe setup
+
+
 const stripePromise = loadStripe("pk_test_51N5quMDHDtaIvDO2nmKU2EZnqpoZvT3QUWUFzD79fu6Ht9iPxR2zrv5NJvxMZ98s1lTeRkmuXvTLQz82PEpcHnQB00lIceFH6V");
 
-// PayPal setup
 const paypalOptions = {
-  "client-id": "ASVLCVJ4a62t_sauBvKf93ifWTkn-4uooOK6Sdnx57USnTnkMADS3mja6sa1zdd8GfuoLUvPQR0aiowv", // Replace with your actual PayPal client ID
+  "client-id": "ASVLCVJ4a62t_sauBvKf93ifWTkn-4uooOK6Sdnx57USnTnkMADS3mja6sa1zdd8GfuoLUvPQR0aiowv",
   currency: "USD",
 };
 
@@ -85,31 +85,20 @@ function BookingModal({ opened, setOpened, email, listingId }) {
   };
 
   return (
-    <Modal
-      open={opened}
-      onCancel={() => setOpened(false)}
-      title="Book your visit"
-      footer={null}
-      centered
-    >
+    <Modal open={opened} onCancel={() => setOpened(false)} title="Book your visit" footer={null} centered>
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        {/* Date Picker */}
         <DatePicker
           value={date}
           onChange={(date) => setDate(date)}
           disabledDate={(current) => current && current < dayjs().startOf("day")}
           style={{ width: "100%" }}
         />
-
-        {/* Time Picker */}
         <TimePicker
           value={time}
           onChange={(time) => setTime(time)}
           format="HH:mm"
           style={{ width: "100%" }}
         />
-
-        {/* Payment Options */}
         <div>
           <h4>Select Payment Method</h4>
           <Select
@@ -121,61 +110,46 @@ function BookingModal({ opened, setOpened, email, listingId }) {
             <Select.Option value="stripe">Stripe</Select.Option>
             <Select.Option value="paypal">PayPal</Select.Option>
             <Select.Option value="mtn_mobile_money">MTN Mobile Money</Select.Option>
+            <Select.Option value="paystack">Paystack</Select.Option>
           </Select>
         </div>
-
-        {/* Stripe Payment */}
         {paymentMethod === "stripe" && (
           <Elements stripe={stripePromise}>
-            <StripePayment
-              onSuccess={() => handlePaymentSuccess("stripe")}
-              onFailure={handlePaymentFailure}
-            />
+            <StripePayment onSuccess={() => handlePaymentSuccess("stripe")} onFailure={handlePaymentFailure} />
           </Elements>
         )}
-
-        {/* PayPal Payment */}
         {paymentMethod === "paypal" && (
           <PayPalScriptProvider options={paypalOptions}>
-          <PayPalButtons
-            createOrder={(data, actions) => {
-              return actions.order.create({
-                purchase_units: [
-                  {
-                    amount: {
-                      value: "10.00", // Replace with actual amount
+            <PayPalButtons
+              createOrder={(data, actions) => {
+                return actions.order.create({
+                  purchase_units: [
+                    {
+                      amount: {
+                        value: "10.00",
+                      },
                     },
-                  },
-                ],
-              });
-            }}
-            onApprove={(data, actions) => {
-              return actions.order.capture().then((details) => {
-                handlePaymentSuccess("paypal", details.id); // Pass PayPal order ID
-              });
-            }}
-            onError={handlePaymentFailure}
-          />
-        </PayPalScriptProvider>
+                  ],
+                });
+              }}
+              onApprove={(data, actions) => {
+                return actions.order.capture().then((details) => {
+                  handlePaymentSuccess("paypal", details.id);
+                });
+              }}
+              onError={handlePaymentFailure}
+            />
+          </PayPalScriptProvider>
         )}
-
-        {/* MTN Mobile Money Payment */}
         {paymentMethod === "mtn_mobile_money" && (
-          <MTNMobileMoneyPayment
-            onSuccess={() => handlePaymentSuccess("mtn_mobile_money")}
-            onFailure={handlePaymentFailure}
-          />
+          <MTNMobileMoneyPayment onSuccess={() => handlePaymentSuccess("mtn_mobile_money")} onFailure={handlePaymentFailure} />
         )}
-
-        {/* Book Visit Button */}
+        {paymentMethod === "paystack" && (
+          <PaystackPayment amount={10} email={email} onSuccess={() => handlePaymentSuccess("paystack")} onFailure={handlePaymentFailure} />
+        )}
         <Button
           type="primary"
-          disabled={
-            !date ||
-            !time ||
-            isLoading ||
-            (paymentMethod !== "pay_on_arrival" && paymentStatus !== "paid")
-          }
+          disabled={!date || !time || isLoading || (paymentMethod !== "pay_on_arrival" && paymentStatus !== "paid")}
           loading={isLoading}
           onClick={() => mutate({ paymentMethod, paypalOrderId })}
           style={{ width: "100%", marginTop: "1rem" }}

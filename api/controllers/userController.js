@@ -6,7 +6,114 @@ import nodemailer from "nodemailer";
 import { nanoid } from "nanoid"; // For generating unique IDs
 import Stripe from "stripe";
 import paypal from "@paypal/checkout-server-sdk"; // Import PayPal SDK
+import dotenv from "dotenv";
 
+dotenv.config();
+
+const PAYSTACK_SECRET_KEY = "sk_test_61a8d94ca5f913faf2866b77afc59079900ed1f8";
+const PAYSTACK_BASE_URL = "https://api.paystack.co";
+
+/**
+ * Initiate MTN Mobile Money Payment via Paystack
+ */
+export const payWithMoMo = asyncHandler(async (req, res) => {
+  const { email, amount, phone, provider } = req.body;
+
+  try {
+    const response = await axios.post(
+      `${PAYSTACK_BASE_URL}/charge`,
+      {
+        email,
+        amount: amount * 100, // Convert to kobo (smallest unit)
+        currency: "GHS", // Change to country currency if needed (e.g., GHS for Ghana)
+        mobile_money: {
+          phone,
+          provider, // Accepts 'mtn', 'vodafone', or 'airtel'
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (response.data.status) {
+      return res.json({
+        success: true,
+        message: "Payment initiated successfully",
+        data: response.data.data,
+      });
+    } else {
+      return res
+        .status(400)
+        .json({ success: false, message: response.data.message });
+    }
+  } catch (error) {
+    console.error("Paystack MoMo Error:", error.response?.data || error);
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Payment failed",
+        error: error.message,
+      });
+  }
+});
+
+export const verifyMoMoPayment = asyncHandler(async (req, res) => {
+  const { reference } = req.query;
+
+  try {
+    const response = await axios.get(
+      `${PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        },
+      }
+    );
+
+    if (response.data.status && response.data.data.status === "success") {
+      return res.json({
+        success: true,
+        message: "Payment successful",
+        data: response.data.data,
+      });
+    } else {
+      return res
+        .status(400)
+        .json({ success: false, message: "Payment verification failed" });
+    }
+  } catch (error) {
+    console.error(
+      "Paystack Verification Error:",
+      error.response?.data || error
+    );
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Verification failed",
+        error: error.message,
+      });
+  }
+});
+
+export const paystackWebhook = asyncHandler(async (req, res) => {
+  const event = req.body;
+
+  if (event.event === "charge.success") {
+    console.log("MoMo Payment Successful:", event.data);
+
+    // ✅ Update database (mark booking as paid)
+  } else if (event.event === "charge.failed") {
+    console.log("MoMo Payment Failed:", event.data);
+  }
+
+  res.sendStatus(200); // Acknowledge receipt
+});
 
 // PayPal client setup
 const paypalClient = new paypal.core.PayPalHttpClient(
@@ -248,6 +355,7 @@ export const bookVisit = asyncHandler(async (req, res) => {
     paymentStatus,
     paymentMethodId,
     paypalOrderId, // Add PayPal order ID to the request body
+    paymentReference, // Ensure this is extracted for paystack
   } = req.body;
   const id = req.params.id;
 
@@ -343,6 +451,30 @@ export const bookVisit = asyncHandler(async (req, res) => {
           .json({ message: "PayPal payment failed. Please try again." });
       }
     }
+
+    // Handle Paystack confirmation
+    if (paymentMethod === "paystack" && paymentReference) {
+      try {
+        const verificationResponse = await axios.get(
+          `${PAYSTACK_BASE_URL}/transaction/verify/${paymentReference}`,
+          {
+            headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+          }
+        );
+    
+        const verificationData = verificationResponse.data; // Ensure correct data extraction
+    
+        if (verificationData.status !== true || verificationData.data.status !== "success") {
+          return res
+            .status(400)
+            .json({ message: "Paystack payment failed. Please try again." });
+        }
+      } catch (paystackError) {
+        console.error("Paystack payment error:", paystackError.response?.data || paystackError.message);
+        return res.status(400).json({ message: "Paystack payment verification failed." });
+      }
+    }
+    
 
     // Generate a unique booking number
     const bookingNumber = await generateUniqueBookingNumber();
@@ -448,6 +580,7 @@ export const bookVisit = asyncHandler(async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
 export const updateExpiredBookings = async () => {
   try {
     console.log("Starting expired bookings check...");

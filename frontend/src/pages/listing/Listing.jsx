@@ -46,7 +46,7 @@ function Listing() {
       enabled: !!user?.email && !!token,
     }
   );
-  console.log(userDetail)
+
 
   // Cancel booking mutation
   const { mutate: removeBooking, isLoading: cancelling } = useMutation({
@@ -59,12 +59,9 @@ function Listing() {
             : booking
         );
 
-        console.log("Updated Bookings:", updatedBookings); // Debugging
 
         // Update local storage with the updated bookings
         localStorage.setItem("bookings", JSON.stringify(updatedBookings));
-
-        console.log("Local Storage Updated:", localStorage.getItem("bookings")); // Debugging
 
         return {
           ...prev,

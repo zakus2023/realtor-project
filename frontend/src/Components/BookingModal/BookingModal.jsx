@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Button, DatePicker, Modal, TimePicker, Select } from "antd";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { toast } from "react-toastify";
@@ -10,6 +10,7 @@ import { Elements } from "@stripe/react-stripe-js";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import StripePayment from "../StripePayment/StripePayment";
 import PaystackPayment from "../MTNPayment/PaystackPayment";
+import "./BookingModal.css";
 
 const stripePromise = loadStripe(
   "pk_test_51N5quMDHDtaIvDO2nmKU2EZnqpoZvT3QUWUFzD79fu6Ht9iPxR2zrv5NJvxMZ98s1lTeRkmuXvTLQz82PEpcHnQB00lIceFH6V"
@@ -74,27 +75,39 @@ function BookingModal({ opened, setOpened, email, listingId }) {
     }));
   };
 
-  const handlePaymentSuccess = async (method, orderId = null, reference = null) => {
-    console.log("Payment successful. Method:", method, "Reference:", reference);
+  const handlePaymentSuccess = async (
+    method,
+    orderId = null,
+    reference = null
+  ) => {
+    console.log(
+      "🚀 Payment Successful! Method:",
+      method,
+      "Reference:",
+      reference
+    );
+
     setPaymentStatus("paid");
     setPaymentMethod(method);
 
     if (method === "paypal") {
       setPaypalOrderId(orderId);
-    }
+    } else if (method === "paystack") {
+      console.log("📌 Storing Paystack Reference:", reference);
 
-    if (method === "paystack") {
-      console.log("Setting payment reference:", reference);
-      setPaymentReference(reference); // Set the payment reference for Paystack
-      // Call mutate directly after setting the reference
-      await mutate({
-        paymentMethod: method,
-        paypalOrderId: null,
-        paymentReference: reference,
-      });
+      setPaymentReference(reference);
+
+      // Delay to ensure state updates before mutation
+      setTimeout(() => {
+        console.log("📤 Sending Paystack Reference to Backend:", reference);
+        mutate({
+          paymentMethod: "paystack",
+          paypalOrderId: null,
+          paymentReference: reference,
+        });
+      }, 500);
     } else {
-      // For other payment methods, call mutate without paymentReference
-      await mutate({
+      mutate({
         paymentMethod: method,
         paypalOrderId: orderId,
         paymentReference: null,
@@ -113,8 +126,9 @@ function BookingModal({ opened, setOpened, email, listingId }) {
       title="Book your visit"
       footer={null}
       centered
+      className="modal-main"
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div className="booking-modal">
         <DatePicker
           value={date}
           onChange={(date) => setDate(date)}
@@ -129,12 +143,13 @@ function BookingModal({ opened, setOpened, email, listingId }) {
           format="HH:mm"
           style={{ width: "100%" }}
         />
-        <div>
+        <div className="payment-method">
           <h4>Select Payment Method</h4>
           <Select
             value={paymentMethod}
             onChange={(value) => setPaymentMethod(value)}
             style={{ width: "100%" }}
+            className="select"
           >
             <Select.Option value="pay_on_arrival">Pay on Arrival</Select.Option>
             <Select.Option value="stripe">Stripe</Select.Option>
@@ -145,51 +160,55 @@ function BookingModal({ opened, setOpened, email, listingId }) {
             <Select.Option value="paystack">Paystack</Select.Option>
           </Select>
         </div>
-        {paymentMethod === "stripe" && (
-          <Elements stripe={stripePromise}>
-            <StripePayment
-              onSuccess={() => handlePaymentSuccess("stripe")}
+        <div className="payment-buttons">
+          {paymentMethod === "stripe" && (
+            <Elements stripe={stripePromise}>
+              <StripePayment
+                onSuccess={() => handlePaymentSuccess("stripe")}
+                onFailure={handlePaymentFailure}
+              />
+            </Elements>
+          )}
+          {paymentMethod === "paypal" && (
+            <PayPalScriptProvider options={paypalOptions}>
+              <PayPalButtons
+                createOrder={(data, actions) => {
+                  return actions.order.create({
+                    purchase_units: [
+                      {
+                        amount: {
+                          value: "10.00",
+                        },
+                      },
+                    ],
+                  });
+                }}
+                onApprove={(data, actions) => {
+                  return actions.order.capture().then((details) => {
+                    handlePaymentSuccess("paypal", details.id);
+                  });
+                }}
+                onError={handlePaymentFailure}
+              />
+            </PayPalScriptProvider>
+          )}
+          {paymentMethod === "mtn_mobile_money" && (
+            <MTNMobileMoneyPayment
+              onSuccess={() => handlePaymentSuccess("mtn_mobile_money")}
               onFailure={handlePaymentFailure}
             />
-          </Elements>
-        )}
-        {paymentMethod === "paypal" && (
-          <PayPalScriptProvider options={paypalOptions}>
-            <PayPalButtons
-              createOrder={(data, actions) => {
-                return actions.order.create({
-                  purchase_units: [
-                    {
-                      amount: {
-                        value: "10.00",
-                      },
-                    },
-                  ],
-                });
-              }}
-              onApprove={(data, actions) => {
-                return actions.order.capture().then((details) => {
-                  handlePaymentSuccess("paypal", details.id);
-                });
-              }}
-              onError={handlePaymentFailure}
+          )}
+          {paymentMethod === "paystack" && (
+            <PaystackPayment
+              amount={10}
+              email={email}
+              onSuccess={(reference) =>
+                handlePaymentSuccess("paystack", null, reference)
+              }
+              onFailure={handlePaymentFailure}
             />
-          </PayPalScriptProvider>
-        )}
-        {paymentMethod === "mtn_mobile_money" && (
-          <MTNMobileMoneyPayment
-            onSuccess={() => handlePaymentSuccess("mtn_mobile_money")}
-            onFailure={handlePaymentFailure}
-          />
-        )}
-        {paymentMethod === "paystack" && (
-          <PaystackPayment
-            amount={10}
-            email={email}
-            onSuccess={(reference) => handlePaymentSuccess("paystack", null, reference)} // Pass the reference
-            onFailure={handlePaymentFailure}
-          />
-        )}
+          )}
+        </div>
         <Button
           type="primary"
           disabled={

@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "react-query";
 import { fetchAllBookings, updateVisitStatusFromAdmin } from "../../utils/api";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { useNavigate } from "react-router-dom";
-import { useAuth0 } from "@auth0/auth0-react";
+import "./AllBooking.css";
 
 const { Option } = Select;
 
@@ -90,34 +90,40 @@ function AllBookings() {
           {property?.title || "N/A"}
         </span>
       ),
+      responsive: ["xs", "sm"], // Show on extra small and small screens
     },
     {
       title: "GPS Code",
       dataIndex: "property",
       key: "gpsCode",
       render: (property) => property?.gpsCode || "N/A",
+      responsive: ["xs", "sm"], // Show on extra small and small screens
     },
     {
       title: "Visitor's Email",
       dataIndex: "user",
       key: "email",
       render: (user) => user?.email || "N/A",
+      responsive: ["md"], // Show on medium screens and larger
     },
     {
       title: "Visitor's Telephone",
       dataIndex: "user",
       key: "telephone",
       render: (user) => user?.telephone || "N/A",
+      responsive: ["md"], // Show on medium screens and larger
     },
     {
       title: "Date",
       dataIndex: "date",
       key: "date",
+      responsive: ["md"], // Show on medium screens and larger
     },
     {
       title: "Time",
       dataIndex: "time",
       key: "time",
+      responsive: ["md"], // Show on medium screens and larger
     },
     {
       title: "Action",
@@ -130,6 +136,7 @@ function AllBookings() {
           View Booking
         </Button>
       ),
+      responsive: ["xs", "sm", "md", "lg", "xl"], // Always show the action button
     },
   ];
 
@@ -201,7 +208,10 @@ function AllBookings() {
             gap: "20px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div
+            style={{ display: "flex", alignItems: "center", gap: "2px" }}
+            className="legend-item"
+          >
             <div
               style={{
                 width: "16px",
@@ -212,7 +222,10 @@ function AllBookings() {
             />
             <span>Pending</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div
+            style={{ display: "flex", alignItems: "center", gap: "2px" }}
+            className="legend-item"
+          >
             <div
               style={{
                 width: "16px",
@@ -223,7 +236,10 @@ function AllBookings() {
             />
             <span>Completed</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div
+            style={{ display: "flex", alignItems: "center", gap: "2px" }}
+            className="legend-item"
+          >
             <div
               style={{
                 width: "16px",
@@ -234,7 +250,10 @@ function AllBookings() {
             />
             <span>Cancelled</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div
+            style={{ display: "flex", alignItems: "center", gap: "2px" }}
+            className="legend-item"
+          >
             <div
               style={{
                 width: "16px",
@@ -253,6 +272,10 @@ function AllBookings() {
         visible={isModalVisible}
         onCancel={handleCancel}
         footer={null}
+        centered // Ensure the modal is centered
+        width="90%" // Set a responsive width
+        style={{ maxWidth: "600px" }} // Limit maximum width for larger screens
+        className="all-bookings-modal"
       >
         {selectedBooking && (
           <Form layout="vertical">
@@ -263,7 +286,10 @@ function AllBookings() {
               <Input value={selectedBooking.user?.email || "N/A"} disabled />
             </Form.Item>
             <Form.Item label="Visitor Address">
-              <Input value={selectedBooking.property?.address || "N/A"} disabled />
+              <Input
+                value={selectedBooking.property?.address || "N/A"}
+                disabled
+              />
             </Form.Item>
             <Form.Item label="Date">
               <Input value={selectedBooking.date} disabled />

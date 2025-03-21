@@ -1,86 +1,141 @@
+/* Base styles */
 .wrapper {
-    background-color: white; /* White background */
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-  
-  .settings-title {
-    text-align: center;
-    color: #333;
-    margin-bottom: 20px;
-  }
-  
-  .user-details-card {
-    background-color: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-  
-  .avatar-container {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 20px;
-  }
-  
-  .user-avatar {
-    border: 2px solid #1890ff;
-  }
-  
-  .user-info {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .user-info-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  background-color: white; /* White background */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.settings-title {
+  text-align: center;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.user-details-card {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.avatar-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.user-avatar {
+  border: 2px solid #1890ff;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.user-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.info-label {
+  font-weight: bold;
+  color: #555;
+  min-width: 100px; /* Ensure labels have consistent width */
+}
+
+.info-value {
+  color: #333;
+}
+
+.button-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.loading-container,
+.error-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.error-container {
+  color: red;
+}
+
+.cancelButton {
+  background-color: red;
+  color: white;
+  font-size: 15px;
+  padding: 7px 10px;
+  font-weight: 600;
+  border: none;
+  border-radius: 5px;
+}
+
+.cancelButton:hover {
+  background-color: rgb(147, 60, 60);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .wrapper {
     padding: 10px;
-    border-bottom: 1px solid #f0f0f0;
   }
-  
+
+  .user-details-card {
+    padding: 10px;
+  }
+
+  .user-info-item {
+    flex-direction: column; /* Stack label and value vertically */
+    align-items: flex-start; /* Align items to the left */
+    gap: 5px; /* Add gap between label and value */
+  }
+
   .info-label {
-    font-weight: bold;
-    color: #555;
-    min-width: 100px; /* Ensure labels have consistent width */
+    min-width: auto; /* Remove fixed width for labels */
   }
-  
-  .info-value {
-    color: #333;
-  }
-  
+
   .button-container {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 20px;
-  }
-  
-  .loading-container,
-  .error-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-  }
-  
-  .error-container {
-    color: red;
+    flex-direction: column; /* Stack buttons vertically */
+    gap: 10px; /* Add gap between buttons */
   }
 
-  .cancelButton{
-    background-color: red;
-    color: white;
-    font-size: 15px;
-    padding:7px 10px;
-    font-weight: 600;
-    border: none;
-    border-radius: 5px;
+  .cancelButton,
+  .ant-btn {
+    width: 100%; /* Make buttons full width */
+  }
+}
+
+@media (max-width: 480px) {
+  .wrapper {
+    padding: 5px;
   }
 
-  .cancelButton:hover{
-    background-color: rgb(147, 60, 60);
+  .user-details-card {
+    padding: 5px;
   }
- 
+
+  .user-info-item {
+    padding: 5px; /* Reduce padding for very small screens */
+  }
+
+  .info-label,
+  .info-value {
+    font-size: 14px; /* Reduce font size for very small screens */
+  }
+
+  .cancelButton,
+  .ant-btn {
+    font-size: 14px; /* Reduce button font size */
+  }
+}

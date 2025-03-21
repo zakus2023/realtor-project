@@ -1,0 +1,101 @@
+/* Base styles for the modal */
+.booking-modal {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  
+  .booking-modal .ant-picker,
+  .booking-modal .ant-select {
+    width: 100%;
+  }
+  
+  .booking-modal .payment-method {
+    margin-top: 1rem;
+  }
+  
+  .booking-modal .payment-method h4 {
+    margin-bottom: 0.5rem;
+  }
+  
+  .booking-modal .payment-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .booking-modal .ant-btn {
+    width: 100%;
+    margin-top: 1rem;
+  }
+  
+  /* Ensure the modal is centered on small screens */
+  .ant-modal {
+    max-width: 95%; /* Ensure the modal doesn't overflow on small screens */
+    margin: 0 auto; /* Center the modal horizontally */
+  }
+  
+  .ant-modal-content {
+    width: 100%; /* Ensure the modal content takes full width */
+  }
+  
+  /* Responsive styles */
+  @media (max-width: 768px) {
+    .modal-main{
+        width: 350px !important;
+    }
+    .booking-modal {
+      padding: 0.5rem;
+    }
+  
+    .booking-modal .ant-picker,
+    .booking-modal .ant-select {
+      font-size: 14px; /* Reduce font size for smaller screens */
+    }
+  
+    .booking-modal .payment-buttons {
+      gap: 0.5rem; /* Reduce gap between payment buttons */
+    }
+  
+    .booking-modal .ant-btn {
+      font-size: 14px; /* Reduce button font size */
+    }
+    .ant-modal {
+        top: 50%; /* Center vertically */
+        transform: translateX(-50%); /* Adjust for exact centering */
+      }
+  }
+  
+  @media (max-width: 480px) {
+    .modal-main{
+        width: 300px !important;
+    }
+    .booking-modal {
+      padding: 0.25rem;
+    }
+  
+    .booking-modal .ant-picker,
+    .booking-modal .ant-select {
+      font-size: 12px; /* Further reduce font size for very small screens */
+    }
+    .payment-method .ant-select{
+      width: 100% !important;
+    }
+  
+    .booking-modal .payment-buttons {
+      gap: 0.25rem; /* Further reduce gap between payment buttons */
+    }
+  
+    .booking-modal .ant-btn {
+      font-size: 12px; /* Further reduce button font size */
+    }
+  
+    /* Ensure the modal is centered and fits well on very small screens */
+    .ant-modal {
+      top: 50%; /* Center vertically */
+      left: 0;
+      right: 0;
+      transform: translateX(-72%); /* Adjust for exact centering */
+    }
+  }

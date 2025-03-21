@@ -3,8 +3,9 @@ import UserDetailsContext from "../../context/UserDetailsContext";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useQuery, useMutation } from "react-query";
 import { fetchAllUsers, fetchUserDetails, editUserDetails } from "../../utils/api";
-import { Table, Select, Spin, Alert } from "antd";
+import { Table, Select, Spin } from "antd";
 import { toast } from "react-toastify";
+import "./AllUsers.css"; // Import the CSS file
 
 const { Option } = Select;
 
@@ -113,7 +114,7 @@ function AllUsers() {
       render: (text, record) => (
         <Select
           defaultValue={text}
-          style={{ width: 120 }}
+          style={{ width: "100%" }} // Make the select dropdown responsive
           onChange={(value) => handleRoleChange(record.id, value)}
         >
           <Option value="user">User</Option>
@@ -128,7 +129,7 @@ function AllUsers() {
       render: (text, record) => (
         <Select
           defaultValue={text}
-          style={{ width: 120 }}
+          style={{ width: "100%" }} // Make the select dropdown responsive
           onChange={(value) => handleStatusChange(record.id, value)}
         >
           <Option value="active">Active</Option>
@@ -141,7 +142,7 @@ function AllUsers() {
   // Display error message if there's an error
   if (isUsersError) {
     return (
-      <div style={{ textAlign: "center", color: "white", marginTop: "20px" }}>
+      <div className="error-message">
         <span>Error loading users</span>
       </div>
     );
@@ -150,51 +151,22 @@ function AllUsers() {
   // Display loading spinner while data is being fetched
   if (isUsersLoading) {
     return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-        }}
-      >
+      <div className="loading-spinner">
         <Spin size="large" />
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        padding: "20px",
-        backgroundColor: "#f0f2f5",
-        minHeight: "100vh",
-      }}
-    >
-      <h1
-        style={{
-          textAlign: "center",
-          color: "#333",
-          marginBottom: "20px",
-        }}
-      >
-        All Users
-      </h1>
-      <div
-        style={{
-          maxWidth: "1200px",
-          margin: "0 auto",
-          backgroundColor: "white",
-          padding: "20px",
-          borderRadius: "8px",
-          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-        }}
-      >
+    <div className="all-users-container">
+      <h1>All Users</h1>
+      <div className="table-container">
         <Table
-          dataSource={users?.users} // Pass the user data to the table
-          columns={columns} // Define the columns for the table
-          rowKey="id" // Use the 'id' field as the unique key for each row
-          pagination={{ pageSize: 10 }} // Add pagination
+          dataSource={users?.users}
+          columns={columns}
+          rowKey="id"
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: true }} // Enable horizontal scrolling
           style={{ width: "100%" }}
         />
       </div>

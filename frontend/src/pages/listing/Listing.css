@@ -1,3 +1,4 @@
+/* Existing CSS */
 .listing-container {
   gap: 2rem;
   position: relative;
@@ -59,15 +60,16 @@
   align-items: center;
 }
 
-.listing-details .button{
+.listing-details .button {
   width: 100%;
   margin-top: 1rem;
 }
-.listing-details .button:hover{
+
+.listing-details .button:hover {
   transform: scale(1.05);
 }
 
-.lease-type{
+.lease-type {
   padding: 0.5rem 1rem;
   background: green;
   border: none;
@@ -76,8 +78,65 @@
   font-weight: 600;
 }
 
-.editButton{
+.editButton {
   position: absolute;
   top: 45px;
   right: 50px;
+}
+
+/* Responsive CSS */
+@media (max-width: 768px) {
+  .listing-container {
+    padding: 1rem; /* Add padding for smaller screens */
+  }
+
+  .listing-container > img {
+    max-height: 25rem; /* Reduce image height for smaller screens */
+  }
+
+  .listing-details {
+    flex-direction: column; /* Stack left and right sections vertically */
+  }
+
+  .listing-details .left,
+  .listing-details .map {
+    width: 100%; /* Ensure full width for stacked sections */
+  }
+
+  .facilities {
+    flex-direction: column; /* Stack facilities vertically */
+  }
+
+  .listing-details .button {
+    width: 100%; /* Full width for buttons on smaller screens */
+  }
+
+  .editButton {
+    top: 20px; /* Adjust position for smaller screens */
+    right: 20px;
+  }
+
+  .swiper {
+    margin: 1rem 0; /* Reduce margin for smaller screens */
+  }
+}
+
+@media (max-width: 480px) {
+  .listing-container > img {
+    max-height: 20rem; /* Further reduce image height for very small screens */
+  }
+
+  .listing-details .head {
+    flex-direction: column; /* Stack title and price vertically */
+    gap: 0.5rem;
+  }
+
+  .listing-details .button {
+    font-size: 0.9rem; /* Reduce button font size */
+  }
+
+  .facility {
+    flex-direction: column; /* Stack facility icons and text vertically */
+    align-items: flex-start;
+  }
 }

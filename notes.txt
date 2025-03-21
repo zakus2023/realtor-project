@@ -9613,42 +9613,6 @@ Here is your BookingModal.jsx with Paystack integrated, without changing your ex
 
 Booking Modal
 
-1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-24
-25
-26
-27
-28
-29
-30
-31
-32
-33
-34
-35
-36
 import React, { useContext, useState } from "react";
 import { Button, DatePicker, Modal, TimePicker, Select } from "antd";
 import UserDetailsContext from "../../context/UserDetailsContext";
@@ -9687,4 +9651,230 @@ function BookingModal({ opened, setOpened, email, listingId }) {
       bookVisit({
 
 Answer in chat instead
-I've integrated Paystack into your BookingModal.jsx without changing your existing code. Make sure you create a PaystackPayment component to handle the actual Paystack payment process. Let me know if you need help with that! 🚀
+I've integrated Paystack into your BookingModal.jsx without changing your existing code. Make sure you create a PaystackPayment component to handle the actual Paystack payment process. Let me know if you need help with that! 
+
+
+(Due to technical issues, the search service is temporarily unavailable.)
+
+Here’s a step-by-step procedure for integrating Paystack into your application based on your implementation:
+
+Step 1: Set Up Paystack Account
+Create a Paystack Account:
+
+Sign up at Paystack.
+
+Verify your email and complete the account setup.
+
+Get API Keys:
+
+Go to the Developers section in your Paystack dashboard.
+
+Copy your Test Secret Key and Test Public Key.
+
+Step 2: Install Required Dependencies
+Install axios for making HTTP requests to Paystack:
+
+bash
+Copy
+yarn add axios
+Install crypto for generating HMAC hashes (if not already available in your Node.js environment):
+
+bash
+Copy
+yarn add crypto
+Install dotenv for managing environment variables:
+
+bash
+Copy
+yarn add dotenv
+Step 3: Configure Environment Variables
+Create a .env file in your project root.
+
+Add your Paystack secret key to the .env file:
+
+Copy
+PAYSTACK_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxx
+Load the environment variables in your application:
+
+javascript
+Copy
+import dotenv from "dotenv";
+dotenv.config();
+Step 4: Implement Paystack Payment Initialization
+Create a function to initiate Paystack payments (e.g., mobile money payments):
+
+javascript
+Copy
+export const payWithMoMo = asyncHandler(async (req, res) => {
+  const { email, amount, phone, provider } = req.body;
+
+  try {
+    const response = await axios.post(
+      `${PAYSTACK_BASE_URL}/charge`,
+      {
+        email,
+        amount: amount * 100, // Convert to kobo
+        currency: "GHS", // Change to your currency
+        mobile_money: {
+          phone,
+          provider, // e.g., 'mtn', 'vodafone', 'airtel'
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (response.data.status) {
+      return res.json({
+        success: true,
+        message: "Payment initiated successfully",
+        data: response.data.data,
+      });
+    } else {
+      return res.status(400).json({ success: false, message: response.data.message });
+    }
+  } catch (error) {
+    console.error("Paystack MoMo Error:", error.response?.data || error);
+    res.status(500).json({ success: false, message: "Payment failed", error: error.message });
+  }
+});
+Step 5: Implement Payment Verification
+Create a function to verify Paystack payments using the transaction reference:
+
+javascript
+Copy
+export const verifyMoMoPayment = asyncHandler(async (req, res) => {
+  const { reference } = req.query;
+
+  try {
+    const response = await axios.get(
+      `${PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        },
+      }
+    );
+
+    if (response.data.status && response.data.data.status === "success") {
+      return res.json({
+        success: true,
+        message: "Payment successful",
+        data: response.data.data,
+      });
+    } else {
+      return res.status(400).json({ success: false, message: "Payment verification failed" });
+    }
+  } catch (error) {
+    console.error("Paystack Verification Error:", error.response?.data || error);
+    res.status(500).json({ success: false, message: "Verification failed", error: error.message });
+  }
+});
+Step 6: Implement Paystack Webhook
+Create a function to handle Paystack webhook events:
+
+javascript
+Copy
+export const paystackWebhook = asyncHandler(async (req, res) => {
+  const secret = PAYSTACK_SECRET_KEY;
+  const hash = crypto
+    .createHmac("sha512", secret)
+    .update(JSON.stringify(req.body))
+    .digest("hex");
+
+  if (hash !== req.headers["x-paystack-signature"]) {
+    return res.status(401).send("Unauthorized");
+  }
+
+  const event = req.body;
+
+  if (event.event === "charge.success") {
+    const { reference, customer } = event.data;
+
+    try {
+      const verificationResponse = await axios.get(
+        `${PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
+        {
+          headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+        }
+      );
+
+      const verificationData = verificationResponse.data;
+
+      if (verificationData.status && verificationData.data.status === "success") {
+        const email = customer.email;
+
+        // Fetch the user and update their booking status
+        const user = await prisma.user.findUnique({
+          where: { email },
+          select: { bookedVisit: true },
+        });
+
+        if (user) {
+          const booking = user.bookedVisit.find(
+            (visit) => visit.paymentReference === reference
+          );
+
+          if (booking) {
+            booking.paymentStatus = "paid";
+            await prisma.user.update({
+              where: { email },
+              data: {
+                bookedVisit: user.bookedVisit,
+              },
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error updating booking:", error);
+    }
+  }
+
+  res.sendStatus(200);
+});
+Step 7: Set Up Webhook URL in Paystack
+Go to your Paystack dashboard.
+
+Navigate to Settings > Webhooks.
+
+Set the Test Webhook URL to your backend endpoint (e.g., https://yourdomain.com/api/paystack/webhook).
+
+Use ngrok for local testing:
+
+Install ngrok globally: yarn global add ngrok.
+
+Start ngrok: ngrok http 5000 (replace 5000 with your server port).
+
+Update the webhook URL in Paystack to the ngrok URL (e.g., https://abcd1234.ngrok.io/api/paystack/webhook).
+
+Step 8: Integrate Paystack in Frontend
+Use the Paystack inline script or React library to initialize payments.
+
+Pass the payment reference to the backend for verification.
+
+Step 9: Test the Integration
+Use Paystack's test card (4187427415564246) to simulate payments.
+
+Verify that webhook events are processed correctly.
+
+Check your database to ensure booking statuses are updated.
+
+Summary
+Set up Paystack account and get API keys.
+
+Install required dependencies (axios, crypto, dotenv).
+
+Implement payment initialization and verification.
+
+Set up and test the Paystack webhook.
+
+Integrate Paystack in the frontend.
+
+Test the entire flow using Paystack's test tools.
+
+Let me know if you need further clarification!

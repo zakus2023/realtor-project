@@ -42,8 +42,6 @@ router.get("/fetchAllSubscriptions", jwtCheck, fetchAllSubscriptions)
 router.put("/:userEmail/bookings/:bookingId", jwtCheck, updateVisitStatusFromAdmin)
 router.post("/stripe/create-payment-intent", createPaymentIntent)
 router.get("/payment-status", getPaymentStatus);
-//router.post("/mtn-mobile-money/initiate-payment", handleMomoPayment)
-//router.post("/initiate", initiatePaystackPaymentController);
 router.post("/paystack/momo", payWithMoMo);
 router.get("/paystack/verify", verifyMoMoPayment);
 router.post("/paystack/webhook", paystackWebhook);

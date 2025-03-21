@@ -7,10 +7,12 @@ import { nanoid } from "nanoid"; // For generating unique IDs
 import Stripe from "stripe";
 import paypal from "@paypal/checkout-server-sdk"; // Import PayPal SDK
 import dotenv from "dotenv";
+import crypto from "crypto";
+import axios from "axios";
 
 dotenv.config();
 
-const PAYSTACK_SECRET_KEY = "sk_test_61a8d94ca5f913faf2866b77afc59079900ed1f8";
+const PAYSTACK_SECRET_KEY = "sk_test_c2cacb9ea319f35c61dccb9074f8c395eb2db52d";
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 
 /**
@@ -102,17 +104,86 @@ export const verifyMoMoPayment = asyncHandler(async (req, res) => {
 });
 
 export const paystackWebhook = asyncHandler(async (req, res) => {
+  const secret = PAYSTACK_SECRET_KEY; // Ensure this is set in your environment
+  const hash = crypto
+    .createHmac("sha512", secret)
+    .update(JSON.stringify(req.body))
+    .digest("hex");
+
+  if (hash !== req.headers["x-paystack-signature"]) {
+    return res.status(401).send("Unauthorized");
+  }
+
   const event = req.body;
 
   if (event.event === "charge.success") {
-    console.log("MoMo Payment Successful:", event.data);
+    const { reference, customer } = event.data;
 
-    // ✅ Update database (mark booking as paid)
-  } else if (event.event === "charge.failed") {
-    console.log("MoMo Payment Failed:", event.data);
+    console.log("Payment Reference from Webhook:", reference); // Debugging
+
+    try {
+      const verificationResponse = await axios.get(
+        `${PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
+        {
+          headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+        }
+      );
+
+      const verificationData = verificationResponse.data;
+      console.log("VERIFICATION DATA: ",verificationData)
+
+      if (verificationData.status && verificationData.data.status === "success") {
+        const email = customer.email;
+        console.log("CUSTOMER>EMAIL: ",email)
+
+        // Fetch the user
+        const user = await prisma.user.findUnique({
+          where: { email },
+          select: { bookedVisit: true },
+        });
+
+        if (!user) {
+          console.error("User not found for email:", email);
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        // Log the user's bookings for debugging
+        console.log("User's Bookings:", user.bookedVisit);
+
+        // Find the booking associated with this payment
+        const booking = user.bookedVisit.find(
+          (visit) => visit.paymentReference === reference
+        );
+        console.log("Booking from webhook: ", booking)
+
+        if (booking) {
+          // Update the booking status to 'paid'
+          booking.paymentStatus = "paid";
+
+          // Update the user's bookedVisit array
+          await prisma.user.update({
+            where: { email },
+            data: {
+              bookedVisit: user.bookedVisit,
+            },
+          });
+
+          console.log("Booking updated successfully:", booking);
+        } else {
+          console.error("No booking found for payment reference:", reference);
+          return res.status(404).json({ message: "Booking not found" });
+        }
+      } else {
+        console.error("Payment verification failed:", verificationData);
+        return res.status(400).json({ message: "Payment verification failed" });
+      }
+    } catch (error) {
+      console.error("Error updating booking:", error);
+      return res.status(500).json({ message: "Internal Server Error" });
+    }
   }
 
-  res.sendStatus(200); // Acknowledge receipt
+  res.sendStatus(200);
 });
 
 // PayPal client setup
@@ -146,6 +217,7 @@ const sendEmail = async (to, subject, text) => {
 
   await transporter.sendMail(mailOptions);
 };
+
 
 // create user
 export const createUser = asyncHandler(async (req, res) => {
@@ -243,7 +315,7 @@ export const fetchAllUsers = asyncHandler(async (req, res) => {
 
 export const fetchUserDetails = asyncHandler(async (req, res) => {
   const { email } = req.params;
-  console.log("Email: ", email);
+ 
 
   // Validate email
   if (!email) {
@@ -344,7 +416,6 @@ const generateUniqueBookingNumber = async () => {
 
   return bookingNumber;
 };
-
 export const bookVisit = asyncHandler(async (req, res) => {
   const {
     email,
@@ -354,33 +425,34 @@ export const bookVisit = asyncHandler(async (req, res) => {
     paymentMethod,
     paymentStatus,
     paymentMethodId,
-    paypalOrderId, // Add PayPal order ID to the request body
-    paymentReference, // Ensure this is extracted for paystack
+    paypalOrderId,
+    paymentReference, // For Paystack
   } = req.body;
   const id = req.params.id;
+  console.log("Payment method: ", req.body.paymentMethod)
 
   try {
     // Validate date and time
-    const bookingDate = dayjs(date, "YYYY-MM-DD", true); // Strict parsing
-    const bookingTime = dayjs(time, "HH:mm", true); // Strict parsing
+    const bookingDate = dayjs(date, "YYYY-MM-DD", true);
+    const bookingTime = dayjs(time, "HH:mm", true);
 
     if (!bookingDate.isValid()) {
-      return res
-        .status(400)
-        .json({ message: "Invalid date format. Expected format: YYYY-MM-DD" });
+      return res.status(400).json({ 
+        message: "Invalid date format. Expected format: YYYY-MM-DD",
+        receivedDate: date,
+      });
     }
 
     if (!bookingTime.isValid()) {
-      return res
-        .status(400)
-        .json({ message: "Invalid time format. Expected format: HH:mm" });
+      return res.status(400).json({ 
+        message: "Invalid time format. Expected format: HH:mm",
+        receivedTime: time,
+      });
     }
 
     // Check if the booking date is in the future
     if (bookingDate.isBefore(dayjs(), "day")) {
-      return res
-        .status(400)
-        .json({ message: "Booking date must be in the future" });
+      return res.status(400).json({ message: "Booking date must be in the future" });
     }
 
     // Fetch user
@@ -402,9 +474,7 @@ export const bookVisit = asyncHandler(async (req, res) => {
         (visit) => visit.propertyId === id && visit.bookingStatus === "active"
       )
     ) {
-      return res
-        .status(400)
-        .json({ message: "You have already booked to visit this property" });
+      return res.status(400).json({ message: "You have already booked to visit this property" });
     }
 
     // Handle Stripe payment confirmation
@@ -419,15 +489,11 @@ export const bookVisit = asyncHandler(async (req, res) => {
         });
 
         if (paymentIntent.status !== "succeeded") {
-          return res
-            .status(400)
-            .json({ message: "Payment failed. Please try again." });
+          return res.status(400).json({ message: "Stripe payment failed. Please try again." });
         }
       } catch (stripeError) {
         console.error("Stripe payment error:", stripeError);
-        return res
-          .status(400)
-          .json({ message: "Payment failed. Please try again." });
+        return res.status(400).json({ message: "Stripe payment failed. Please try again." });
       }
     }
 
@@ -440,19 +506,15 @@ export const bookVisit = asyncHandler(async (req, res) => {
         const response = await paypalClient.execute(request);
 
         if (response.result.status !== "COMPLETED") {
-          return res
-            .status(400)
-            .json({ message: "PayPal payment failed. Please try again." });
+          return res.status(400).json({ message: "PayPal payment failed. Please try again." });
         }
       } catch (paypalError) {
         console.error("PayPal payment error:", paypalError);
-        return res
-          .status(400)
-          .json({ message: "PayPal payment failed. Please try again." });
+        return res.status(400).json({ message: "PayPal payment failed. Please try again." });
       }
     }
 
-    // Handle Paystack confirmation
+    // Handle Paystack payment confirmation
     if (paymentMethod === "paystack" && paymentReference) {
       try {
         const verificationResponse = await axios.get(
@@ -461,20 +523,18 @@ export const bookVisit = asyncHandler(async (req, res) => {
             headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
           }
         );
-    
-        const verificationData = verificationResponse.data; // Ensure correct data extraction
-    
+
+        const verificationData = verificationResponse.data;
+        console.log("Verification data from book visit: ", verificationData)
+
         if (verificationData.status !== true || verificationData.data.status !== "success") {
-          return res
-            .status(400)
-            .json({ message: "Paystack payment failed. Please try again." });
+          return res.status(400).json({ message: "Paystack payment failed. Please try again." });
         }
       } catch (paystackError) {
         console.error("Paystack payment error:", paystackError.response?.data || paystackError.message);
         return res.status(400).json({ message: "Paystack payment verification failed." });
       }
     }
-    
 
     // Generate a unique booking number
     const bookingNumber = await generateUniqueBookingNumber();
@@ -485,15 +545,15 @@ export const bookVisit = asyncHandler(async (req, res) => {
       data: {
         bookedVisit: {
           push: {
-            id: bookingNumber, // Use the booking number as the ID
+            id: bookingNumber,
             propertyId: id,
             date,
             time,
             visitStatus: visitStatus || "pending",
             bookingStatus: "active",
-            paymentMethod, // Include payment method
-            paymentStatus:
-              paymentMethod === "pay_on_arrival" ? "pending" : "paid", // Update payment status
+            paymentMethod,
+            paymentStatus: paymentMethod === "pay_on_arrival" ? "pending" : "paid",
+            paymentReference, // Include the payment reference for Paystack
           },
         },
       },
@@ -910,8 +970,7 @@ export const editUserDetails = asyncHandler(async (req, res) => {
   const { email } = req.params; // Extract email from request parameters
   const { name, address, telephone, role, status } = req.body; // Extract updated fields from request body
 
-  console.log("Email: ", email);
-  console.log("Updated Data: ", { name, address, telephone, role, status });
+
 
   // Validate email
   if (!email) {

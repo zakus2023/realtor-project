@@ -86,7 +86,16 @@ export const createUser = async (email, token) => {
 
 // book a visit
 
-export const bookVisit = async ({ date, time, listingId, email, token, paymentMethod, paymentStatus }) => {
+export const bookVisit = async ({
+  date,
+  time,
+  listingId,
+  email,
+  token,
+  paymentMethod,
+  paymentStatus,
+  paymentReference, // Include payment reference
+}) => {
   try {
     const response = await api.post(
       `/api/user/bookVisit/${listingId}`,
@@ -96,8 +105,9 @@ export const bookVisit = async ({ date, time, listingId, email, token, paymentMe
         date: dayjs(date).format("YYYY-MM-DD"),
         time: dayjs(time).format("HH:mm"),
         visitStatus: "pending",
-        paymentStatus, // Include payment status
-        paymentMethod, // Include payment method
+        paymentStatus,
+        paymentMethod,
+        paymentReference, // Pass payment reference for Paystack
       },
       {
         headers: {
@@ -116,6 +126,7 @@ export const bookVisit = async ({ date, time, listingId, email, token, paymentMe
     throw error;
   }
 };
+
 // cancel Booking
 export const cancelBooking = async (id, email, token) => {
   try {

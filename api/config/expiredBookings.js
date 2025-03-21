@@ -24,28 +24,21 @@ const checkAndRemoveExpiredBookings = async (email) => {
     const currentDate = dayjs.utc(now).format("YYYY-MM-DD");
     const currentTime = dayjs.utc(now).format("HH:mm");
 
-    console.log("Current Date (UTC):", currentDate, "Current Time (UTC):", currentTime);
-
     // Filter out expired or completed bookings
     const updatedBookings = user.bookedVisit.filter((visit) => {
       // Parse the booking date and time using the correct format (DD/MM/YYYY)
       const bookingDateTime = dayjs.utc(`${visit.date} ${visit.time}`, "DD/MM/YYYY HH:mm");
       const currentDateTime = dayjs.utc(`${currentDate} ${currentTime}`, "YYYY-MM-DD HH:mm");
 
-      console.log("Booking Date Time (UTC):", bookingDateTime.format(), "Current Date Time (UTC):", currentDateTime.format());
+      //console.log("Booking Date Time (UTC):", bookingDateTime.format(), "Current Date Time (UTC):", currentDateTime.format());
 
       const isExpired = bookingDateTime.isBefore(currentDateTime);
       const isCompleted = visit.visitStatus === "completed";
 
-      console.log("Booking:", visit);
-      console.log("Booking Date:", visit.date, "Booking Time:", visit.time);
-      console.log("isExpired:", isExpired, "isCompleted:", isCompleted);
 
       // Keep the booking if it is not expired and not completed
       return !isExpired && !isCompleted;
     });
-
-    console.log("Updated Bookings:", updatedBookings);
 
     // Update the user's bookings if there are any changes
     if (updatedBookings.length !== user.bookedVisit.length) {

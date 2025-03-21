@@ -11,12 +11,13 @@ import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import StripePayment from "../StripePayment/StripePayment";
 import PaystackPayment from "../MTNPayment/PaystackPayment";
 
-
-
-const stripePromise = loadStripe("pk_test_51N5quMDHDtaIvDO2nmKU2EZnqpoZvT3QUWUFzD79fu6Ht9iPxR2zrv5NJvxMZ98s1lTeRkmuXvTLQz82PEpcHnQB00lIceFH6V");
+const stripePromise = loadStripe(
+  "pk_test_51N5quMDHDtaIvDO2nmKU2EZnqpoZvT3QUWUFzD79fu6Ht9iPxR2zrv5NJvxMZ98s1lTeRkmuXvTLQz82PEpcHnQB00lIceFH6V"
+);
 
 const paypalOptions = {
-  "client-id": "ASVLCVJ4a62t_sauBvKf93ifWTkn-4uooOK6Sdnx57USnTnkMADS3mja6sa1zdd8GfuoLUvPQR0aiowv",
+  "client-id":
+    "ASVLCVJ4a62t_sauBvKf93ifWTkn-4uooOK6Sdnx57USnTnkMADS3mja6sa1zdd8GfuoLUvPQR0aiowv",
   currency: "USD",
 };
 
@@ -26,6 +27,7 @@ function BookingModal({ opened, setOpened, email, listingId }) {
   const [paymentMethod, setPaymentMethod] = useState("pay_on_arrival");
   const [paymentStatus, setPaymentStatus] = useState("pending");
   const [paypalOrderId, setPaypalOrderId] = useState(null);
+  const [paymentReference, setPaymentReference] = useState(null); // For Paystack
 
   const {
     userDetails: { token },
@@ -33,7 +35,7 @@ function BookingModal({ opened, setOpened, email, listingId }) {
   } = useContext(UserDetailsContext);
 
   const { mutate, isLoading } = useMutation({
-    mutationFn: ({ paymentMethod, paypalOrderId }) =>
+    mutationFn: ({ paymentMethod, paypalOrderId, paymentReference }) =>
       bookVisit({
         date,
         time,
@@ -43,6 +45,7 @@ function BookingModal({ opened, setOpened, email, listingId }) {
         paymentMethod,
         paymentStatus: paymentMethod === "pay_on_arrival" ? "pending" : "paid",
         paypalOrderId,
+        paymentReference, // Include payment reference for Paystack
       }),
     onSuccess: () => handleBookingSuccess(),
     onError: ({ response }) => toast.error(response.data.message),
@@ -71,13 +74,32 @@ function BookingModal({ opened, setOpened, email, listingId }) {
     }));
   };
 
-  const handlePaymentSuccess = async (method, orderId = null) => {
+  const handlePaymentSuccess = async (method, orderId = null, reference = null) => {
+    console.log("Payment successful. Method:", method, "Reference:", reference);
     setPaymentStatus("paid");
     setPaymentMethod(method);
+
     if (method === "paypal") {
       setPaypalOrderId(orderId);
     }
-    await mutate({ paymentMethod: method, paypalOrderId: orderId });
+
+    if (method === "paystack") {
+      console.log("Setting payment reference:", reference);
+      setPaymentReference(reference); // Set the payment reference for Paystack
+      // Call mutate directly after setting the reference
+      await mutate({
+        paymentMethod: method,
+        paypalOrderId: null,
+        paymentReference: reference,
+      });
+    } else {
+      // For other payment methods, call mutate without paymentReference
+      await mutate({
+        paymentMethod: method,
+        paypalOrderId: orderId,
+        paymentReference: null,
+      });
+    }
   };
 
   const handlePaymentFailure = () => {
@@ -85,12 +107,20 @@ function BookingModal({ opened, setOpened, email, listingId }) {
   };
 
   return (
-    <Modal open={opened} onCancel={() => setOpened(false)} title="Book your visit" footer={null} centered>
+    <Modal
+      open={opened}
+      onCancel={() => setOpened(false)}
+      title="Book your visit"
+      footer={null}
+      centered
+    >
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <DatePicker
           value={date}
           onChange={(date) => setDate(date)}
-          disabledDate={(current) => current && current < dayjs().startOf("day")}
+          disabledDate={(current) =>
+            current && current < dayjs().startOf("day")
+          }
           style={{ width: "100%" }}
         />
         <TimePicker
@@ -109,13 +139,18 @@ function BookingModal({ opened, setOpened, email, listingId }) {
             <Select.Option value="pay_on_arrival">Pay on Arrival</Select.Option>
             <Select.Option value="stripe">Stripe</Select.Option>
             <Select.Option value="paypal">PayPal</Select.Option>
-            <Select.Option value="mtn_mobile_money">MTN Mobile Money</Select.Option>
+            <Select.Option value="mtn_mobile_money">
+              MTN Mobile Money
+            </Select.Option>
             <Select.Option value="paystack">Paystack</Select.Option>
           </Select>
         </div>
         {paymentMethod === "stripe" && (
           <Elements stripe={stripePromise}>
-            <StripePayment onSuccess={() => handlePaymentSuccess("stripe")} onFailure={handlePaymentFailure} />
+            <StripePayment
+              onSuccess={() => handlePaymentSuccess("stripe")}
+              onFailure={handlePaymentFailure}
+            />
           </Elements>
         )}
         {paymentMethod === "paypal" && (
@@ -142,16 +177,35 @@ function BookingModal({ opened, setOpened, email, listingId }) {
           </PayPalScriptProvider>
         )}
         {paymentMethod === "mtn_mobile_money" && (
-          <MTNMobileMoneyPayment onSuccess={() => handlePaymentSuccess("mtn_mobile_money")} onFailure={handlePaymentFailure} />
+          <MTNMobileMoneyPayment
+            onSuccess={() => handlePaymentSuccess("mtn_mobile_money")}
+            onFailure={handlePaymentFailure}
+          />
         )}
         {paymentMethod === "paystack" && (
-          <PaystackPayment amount={10} email={email} onSuccess={() => handlePaymentSuccess("paystack")} onFailure={handlePaymentFailure} />
+          <PaystackPayment
+            amount={10}
+            email={email}
+            onSuccess={(reference) => handlePaymentSuccess("paystack", null, reference)} // Pass the reference
+            onFailure={handlePaymentFailure}
+          />
         )}
         <Button
           type="primary"
-          disabled={!date || !time || isLoading || (paymentMethod !== "pay_on_arrival" && paymentStatus !== "paid")}
+          disabled={
+            !date ||
+            !time ||
+            isLoading ||
+            (paymentMethod !== "pay_on_arrival" && paymentStatus !== "paid")
+          }
           loading={isLoading}
-          onClick={() => mutate({ paymentMethod, paypalOrderId })}
+          onClick={() => {
+            if (paymentMethod === "paystack" && !paymentReference) {
+              toast.error("Please complete the Paystack payment first.");
+              return;
+            }
+            mutate({ paymentMethod, paypalOrderId, paymentReference });
+          }}
           style={{ width: "100%", marginTop: "1rem" }}
         >
           Book visit

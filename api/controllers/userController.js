@@ -22,8 +22,8 @@ import {
 
 dotenv.config();
 
-const PAYSTACK_SECRET_KEY = "sk_test_c2cacb9ea319f35c61dccb9074f8c395eb2db52d";
-const PAYSTACK_BASE_URL = "https://api.paystack.co";
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+const PAYSTACK_BASE_URL = process.env.PAYSTACK_BASE_URL;
 
 /**
  * Initiate MTN Mobile Money Payment via Paystack
@@ -198,14 +198,12 @@ export const paystackWebhook = asyncHandler(async (req, res) => {
 // PayPal client setup
 const paypalClient = new paypal.core.PayPalHttpClient(
   new paypal.core.SandboxEnvironment(
-    "ASVLCVJ4a62t_sauBvKf93ifWTkn-4uooOK6Sdnx57USnTnkMADS3mja6sa1zdd8GfuoLUvPQR0aiowv", // Replace with your PayPal client ID
-    "EHaECb1kuoJRbrjjbBEbyq5OCpaSODl5n7Jy8UQVj_Uz4KCKvvvO97pJSSNv4FTL2mkjN99sx7B4VO8S" // Replace with your PayPal secret
+    process.env.PAYPAL_CLIENT_ID, // Replace with your PayPal client ID
+    process.env.PAYPAL_SECRET // Replace with your PayPal secret
   )
 );
 
-const stripe = new Stripe(
-  "sk_test_51N5quMDHDtaIvDO2D6yFfk02OWESvcXd8jKNJ0V5yQ6BbvuQaN2fEg5rH1S6ywh0Aunqq3yuBZpqtkwDM6y2JsAg00rrnsu5xi"
-);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Email data
 
@@ -214,13 +212,13 @@ const sendEmail = async (to, subject, htmlContent) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: "idbsch2012@gmail.com",
-      pass: "bmdu vqxi dgqj dqoi",
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_PASS,
     },
   });
 
   const mailOptions = {
-    from: "idbsch2012@gmail.com",
+    from: process.env.GMAIL_USER,
     to,
     subject,
     html: htmlContent,
@@ -425,6 +423,8 @@ const generateUniqueBookingNumber = async () => {
 
   return bookingNumber;
 };
+
+// Book visit
 export const bookVisit = asyncHandler(async (req, res) => {
   const {
     email,
@@ -648,11 +648,11 @@ export const bookVisit = asyncHandler(async (req, res) => {
     const sendEmail = async (to, subject, template) => {
       const transporter = nodemailer.createTransport({
         service: "gmail",
-        auth: { user: "idbsch2012@gmail.com", pass: "bmdu vqxi dgqj dqoi" },
+        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS },
       });
 
       await transporter.sendMail({
-        from: "idbsch2012@gmail.com",
+        from: process.env.GMAIL_USER,
         to,
         subject,
         html: template,
@@ -871,11 +871,11 @@ export const cancelBooking = asyncHandler(async (req, res) => {
     const sendEmail = async (to, subject, template) => {
       const transporter = nodemailer.createTransport({
         service: "gmail",
-        auth: { user: "idbsch2012@gmail.com", pass: "bmdu vqxi dgqj dqoi" },
+        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS },
       });
 
       await transporter.sendMail({
-        from: "idbsch2012@gmail.com",
+        from: process.env.GMAIL_USER,
         to,
         subject,
         html: template,

@@ -1,0 +1,18 @@
+/* Add these styles to Layout.css */
+/* Ensure full height layout */
+html, body {
+    height: 100%;
+  }
+  
+  /* Target the parent container */
+  div[style*="background: var(--black)"] {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  /* Make main content grow */
+  div[style*="background: var(--black)"] > :nth-child(2) {
+    flex-grow: 1;
+  }

@@ -15,7 +15,19 @@
   box-sizing: border-box;
   font-family: "Poppins", sans-serif;
   scroll-behavior: smooth;
+  
 }
+/* Add this to your existing CSS */
+html,
+body {
+  overflow-x: hidden; /* Prevent horizontal scroll */
+  max-width: 100vw; /* Ensure content doesn't exceed viewport width */
+}
+/* Optional: Add this if the blank space persists */
+body {
+  position: relative;
+}
+
 a {
   color: inherit;
   text-decoration: none;

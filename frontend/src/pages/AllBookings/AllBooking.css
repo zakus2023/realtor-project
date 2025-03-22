@@ -1,164 +1,153 @@
 /* Base styles */
 .all-bookings-container {
-    padding: 20px;
-    background-color: #f0f2f5;
-    min-height: 100vh;
-  }
-  
-  .all-bookings-container h1 {
-    text-align: center;
-    color: #333;
-    margin-bottom: 20px;
-  }
-  
-  .table-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    background-color: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-  
-  /* Legend for Color Coding */
-  .legend {
-    margin-top: 20px;
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    gap: 20px;
-  }
-  
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .legend-color {
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
-  }
-  
-  .legend-item span {
-    font-size: 14px; /* Default font size for legend text */
-  }
-  
-  
-  /* Responsive styles */
-  @media (max-width: 768px) {
-    .all-bookings-container {
-      padding: 10px;
-    }
-  
-    .table-container {
-      padding: 10px;
-    }
-  
-    .legend {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
-    }
-  
-    /* Reduce font size for small screens */
-    .ant-table {
-      font-size: 12px;
-    }
-  
-    /* Reduce button size for small screens */
-    .ant-btn {
-      padding: 4px 8px; /* Reduce padding */
-      font-size: 12px; /* Reduce font size */
-      height: auto; /* Allow height to adjust based on content */
-    }
-  
-    /* Reduce legend font size and spacing for small screens */
-    .legend-item span {
-      font-size: 12px; /* Reduce font size */
-    }
-  
-    .legend-color {
-      width: 12px; /* Reduce color box size */
-      height: 12px;
-    }
-  }
-  
-  @media (max-width: 480px) {
-    .all-bookings-container h1 {
-      font-size: 1.5rem;
-    }
-  
-    .table-container {
-      padding: 5px;
-    }
-  
-    .legend {
-      gap: 5px;
-    }
-  
-    /* Further reduce font size for very small screens */
-    .ant-table {
-      font-size: 10px;
-    }
-  
-    /* Further reduce button size for very small screens */
-    .ant-btn {
-      padding: 2px 4px; /* Further reduce padding */
-      font-size: 10px; /* Further reduce font size */
-    }
-  
-    /* Further reduce legend font size and spacing for very small screens */
-    .legend-item span {
-      font-size: 10px; /* Further reduce font size */
-    }
-  
-    .legend-color {
-      width: 10px; /* Further reduce color box size */
-      height: 10px;
-    }
+  padding: 20px;
+  background-color: #f0f2f5;
+  min-height: 100vh;
+}
+
+.all-bookings-container h1 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.table-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Legend for Color Coding */
+.legend {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 20px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.legend-item span {
+  font-size: 14px; /* Default font size for legend text */
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .all-bookings-container {
+    padding: 10px;
   }
 
-  /* For modal */
-  /* Ensure the modal is centered on all screens */
-.all-bookings-modal {
+  .table-container {
+    padding: 10px;
+  }
+
+  .legend {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  /* Reduce font size for small screens */
+  .ant-table {
+    font-size: 12px;
+  }
+
+  /* Reduce button size for small screens */
+  .ant-btn {
+    padding: 4px 8px; /* Reduce padding */
+    font-size: 12px; /* Reduce font size */
+    height: auto; /* Allow height to adjust based on content */
+  }
+
+  /* Reduce legend font size and spacing for small screens */
+  .legend-item span {
+    font-size: 12px; /* Reduce font size */
+  }
+
+  .legend-color {
+    width: 12px; /* Reduce color box size */
+    height: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .all-bookings-container h1 {
+    font-size: 1.5rem;
+  }
+
+  .table-container {
+    padding: 5px;
+  }
+
+  .legend {
+    gap: 5px;
+  }
+
+  /* Further reduce font size for very small screens */
+  .ant-table {
+    font-size: 10px;
+  }
+
+  /* Further reduce button size for very small screens */
+  .ant-btn {
+    padding: 2px 4px; /* Further reduce padding */
+    font-size: 10px; /* Further reduce font size */
+  }
+
+  /* Further reduce legend font size and spacing for very small screens */
+  .legend-item span {
+    font-size: 10px; /* Further reduce font size */
+  }
+
+  .legend-color {
+    width: 10px; /* Further reduce color box size */
+    height: 10px;
+  }
+}
+
+/* For modal */
+/* Ensure the modal is centered on all screens */
+
+/* Responsive styles for small screens */
+@media (max-width: 750px) {
+  .all-bookings-modal {
     top: 10% !important;
-    left: 50% !important;
-    transform: translateX(-72) !important;
+    left: 0;
+    right: 0;
     margin: 0 !important;
-    max-width: 95%; /* Ensure the modal doesn't overflow on small screens */
-    position: fixed; /* Ensure the modal stays in place */
+    max-width: 70% !important; /* Ensure the modal doesn't overflow on small screens */
   }
-  
-  /* Ensure the modal content takes full width */
-  .ant-modal-content {
-    width: 100%;
+  .all-bookings-modal .ant-select {
+    width: 100% !important;
   }
-  
-  /* Responsive styles for small screens */
-  @media (max-width: 750px) {
-    .all-bookings-modal {
-        top: 10% !important;
-        left: 50% !important;
-        right: 50%;
-        transform: translateX(-113%) !important;
-        margin: 0 !important;
-        max-width: 40% !important; /* Ensure the modal doesn't overflow on small screens */
-        position: fixed; /* Ensure the modal stays in place */
-    }
-  
-    .ant-modal-body {
-      padding: 16px; /* Reduce padding for smaller screens */
-    }
+
+  .ant-modal-body {
+    padding: 16px; /* Reduce padding for smaller screens */
   }
-  
-  @media (max-width: 480px) {
-    .all-bookings-modal {
-      width: 95% !important; /* Further adjust width for very small screens */
-    }
-  
-    .ant-modal-body {
-      padding: 12px; /* Further reduce padding for very small screens */
-    }
+}
+
+@media (max-width: 480px) {
+  .all-bookings-modal {
+    width: 95% !important; /* Further adjust width for very small screens */
   }
+  .all-bookings-modal .ant-select {
+    width: 100% !important;
+  }
+  .ant-modal-body {
+    padding: 12px; /* Further reduce padding for very small screens */
+  }
+}

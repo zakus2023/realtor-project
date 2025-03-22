@@ -63,7 +63,7 @@
     }
     .ant-modal {
         top: 50%; /* Center vertically */
-        transform: translateX(-50%); /* Adjust for exact centering */
+        
       }
   }
   
@@ -96,6 +96,6 @@
       top: 50%; /* Center vertically */
       left: 0;
       right: 0;
-      transform: translateX(-72%); /* Adjust for exact centering */
+    
     }
   }

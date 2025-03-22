@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html
+  lang="en"
+  xmlns="http://www.w3.org/1999/xhtml"
+  xmlns:v="urn:schemas-microsoft-com:vml"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <title>Visit Confirmation</title>
+    <!--[if mso]>
+      <style type="text/css">
+        body {
+          font-family: Arial, sans-serif !important;
+        }
+        table {
+          border-collapse: collapse;
+          mso-table-lspace: 0pt;
+          mso-table-rspace: 0pt;
+        }
+      </style>
+    <![endif]-->
+  </head>
+  <body style="margin: 0; padding: 0; width: 100%; background-color: #f8f9fa">
+    <center style="width: 100%; background-color: #f8f9fa">
+      <table
+        role="presentation"
+        cellspacing="0"
+        cellpadding="0"
+        border="0"
+        align="center"
+        width="600"
+        style="margin: 0 auto; background: #ffffff"
+      >
+        <!-- Header -->
+        <tr>
+          <td style="background: #004085; padding: 20px; text-align: center">
+            <h1
+              style="color: #ffffff; margin: 0; font-family: Arial, sans-serif"
+            >
+              AetherSoft Realtors
+            </h1>
+          </td>
+        </tr>
+
+        <!-- Content -->
+        <tr>
+          <td
+            style="
+              padding: 30px 20px;
+              font-family: Arial, sans-serif;
+              color: #333333;
+            "
+          >
+            <h2 style="color: #004085; margin-top: 0">
+              Visit Booked Successfully
+            </h2>
+
+            <p style="margin-bottom: 15px">Hello ${userName},</p>
+
+            <table cellspacing="0" cellpadding="0" border="0" width="100%">
+              <tr>
+                <td
+                  style="background: #f8f9fa; padding: 20px; border-radius: 5px"
+                >
+                  <h3
+                    style="color: #004085; margin-top: 0; margin-bottom: 15px"
+                  >
+                    Booking Details
+                  </h3>
+
+                  <table width="100%" style="border-collapse: collapse">
+                    ${bookingDetailsRows}
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <table
+              width="100%"
+              style="
+                margin-top: 25px;
+                border-top: 1px solid #e9ecef;
+                padding-top: 20px;
+              "
+            >
+              <tr>
+                <td>
+                  <p style="margin-bottom: 5px; color: #6c757d">
+                    Need help? Contact support:
+                  </p>
+                  <p style="margin: 0">
+                    📞
+                    <a
+                      href="tel:+1234567890"
+                      style="color: #004085; text-decoration: none"
+                      >+1 (647) 619-2144</a
+                    ><br />
+                    ✉️
+                    <a
+                      href="mailto:support@propertyvisits.com"
+                      style="color: #004085; text-decoration: none"
+                      >support@aethersoftrealtors.com</a
+                    >
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td
+            style="
+              background: #004085;
+              padding: 15px;
+              text-align: center;
+              color: #ffffff;
+              font-size: 0.9em;
+            "
+          >
+            <p style="margin: 0; font-family: Arial, sans-serif">
+              © ${year} AetherSoft Realtors. All rights reserved.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </center>
+  </body>
+</html>

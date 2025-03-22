@@ -9,6 +9,16 @@ import paypal from "@paypal/checkout-server-sdk"; // Import PayPal SDK
 import dotenv from "dotenv";
 import crypto from "crypto";
 import axios from "axios";
+// Add these imports at the top
+import {
+  getConfirmationEmail,
+  getOwnerNotificationEmail,
+  getVisitCancellationNotification,
+  getOwnerVisitCancellation,
+  getAdminSubscriptionNotification,
+  getSubscriptionEmail,
+  getUnsubscriptionEmail,
+} from "../src//utils/emailTemplates.js";
 
 dotenv.config();
 
@@ -54,13 +64,11 @@ export const payWithMoMo = asyncHandler(async (req, res) => {
     }
   } catch (error) {
     console.error("Paystack MoMo Error:", error.response?.data || error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Payment failed",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Payment failed",
+      error: error.message,
+    });
   }
 });
 
@@ -93,13 +101,11 @@ export const verifyMoMoPayment = asyncHandler(async (req, res) => {
       "Paystack Verification Error:",
       error.response?.data || error
     );
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Verification failed",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Verification failed",
+      error: error.message,
+    });
   }
 });
 
@@ -130,11 +136,14 @@ export const paystackWebhook = asyncHandler(async (req, res) => {
       );
 
       const verificationData = verificationResponse.data;
-      console.log("VERIFICATION DATA: ",verificationData)
+      console.log("VERIFICATION DATA: ", verificationData);
 
-      if (verificationData.status && verificationData.data.status === "success") {
+      if (
+        verificationData.status &&
+        verificationData.data.status === "success"
+      ) {
         const email = customer.email;
-        console.log("CUSTOMER>EMAIL: ",email)
+        console.log("CUSTOMER>EMAIL: ", email);
 
         // Fetch the user
         const user = await prisma.user.findUnique({
@@ -154,7 +163,7 @@ export const paystackWebhook = asyncHandler(async (req, res) => {
         const booking = user.bookedVisit.find(
           (visit) => visit.paymentReference === reference
         );
-        console.log("Booking from webhook: ", booking)
+        console.log("Booking from webhook: ", booking);
 
         if (booking) {
           // Update the booking status to 'paid'
@@ -198,8 +207,10 @@ const stripe = new Stripe(
   "sk_test_51N5quMDHDtaIvDO2D6yFfk02OWESvcXd8jKNJ0V5yQ6BbvuQaN2fEg5rH1S6ywh0Aunqq3yuBZpqtkwDM6y2JsAg00rrnsu5xi"
 );
 
+// Email data
+
 // Nodemailer setup
-const sendEmail = async (to, subject, text) => {
+const sendEmail = async (to, subject, htmlContent) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -212,12 +223,11 @@ const sendEmail = async (to, subject, text) => {
     from: "idbsch2012@gmail.com",
     to,
     subject,
-    text,
+    html: htmlContent,
   };
 
   await transporter.sendMail(mailOptions);
 };
-
 
 // create user
 export const createUser = asyncHandler(async (req, res) => {
@@ -315,7 +325,6 @@ export const fetchAllUsers = asyncHandler(async (req, res) => {
 
 export const fetchUserDetails = asyncHandler(async (req, res) => {
   const { email } = req.params;
- 
 
   // Validate email
   if (!email) {
@@ -426,10 +435,9 @@ export const bookVisit = asyncHandler(async (req, res) => {
     paymentStatus,
     paymentMethodId,
     paypalOrderId,
-    paymentReference, // For Paystack
+    paymentReference,
   } = req.body;
   const id = req.params.id;
-  console.log("Payment method: ", req.body.paymentMethod)
 
   try {
     // Validate date and time
@@ -437,14 +445,14 @@ export const bookVisit = asyncHandler(async (req, res) => {
     const bookingTime = dayjs(time, "HH:mm", true);
 
     if (!bookingDate.isValid()) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Invalid date format. Expected format: YYYY-MM-DD",
         receivedDate: date,
       });
     }
 
     if (!bookingTime.isValid()) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Invalid time format. Expected format: HH:mm",
         receivedTime: time,
       });
@@ -452,7 +460,9 @@ export const bookVisit = asyncHandler(async (req, res) => {
 
     // Check if the booking date is in the future
     if (bookingDate.isBefore(dayjs(), "day")) {
-      return res.status(400).json({ message: "Booking date must be in the future" });
+      return res
+        .status(400)
+        .json({ message: "Booking date must be in the future" });
     }
 
     // Fetch user
@@ -474,7 +484,9 @@ export const bookVisit = asyncHandler(async (req, res) => {
         (visit) => visit.propertyId === id && visit.bookingStatus === "active"
       )
     ) {
-      return res.status(400).json({ message: "You have already booked to visit this property" });
+      return res
+        .status(400)
+        .json({ message: "You have already booked to visit this property" });
     }
 
     // Handle Stripe payment confirmation
@@ -489,11 +501,15 @@ export const bookVisit = asyncHandler(async (req, res) => {
         });
 
         if (paymentIntent.status !== "succeeded") {
-          return res.status(400).json({ message: "Stripe payment failed. Please try again." });
+          return res
+            .status(400)
+            .json({ message: "Stripe payment failed. Please try again." });
         }
       } catch (stripeError) {
         console.error("Stripe payment error:", stripeError);
-        return res.status(400).json({ message: "Stripe payment failed. Please try again." });
+        return res
+          .status(400)
+          .json({ message: "Stripe payment failed. Please try again." });
       }
     }
 
@@ -506,11 +522,15 @@ export const bookVisit = asyncHandler(async (req, res) => {
         const response = await paypalClient.execute(request);
 
         if (response.result.status !== "COMPLETED") {
-          return res.status(400).json({ message: "PayPal payment failed. Please try again." });
+          return res
+            .status(400)
+            .json({ message: "PayPal payment failed. Please try again." });
         }
       } catch (paypalError) {
         console.error("PayPal payment error:", paypalError);
-        return res.status(400).json({ message: "PayPal payment failed. Please try again." });
+        return res
+          .status(400)
+          .json({ message: "PayPal payment failed. Please try again." });
       }
     }
 
@@ -525,21 +545,29 @@ export const bookVisit = asyncHandler(async (req, res) => {
         );
 
         const verificationData = verificationResponse.data;
-        console.log("Verification data from book visit: ", verificationData)
+        console.log("Verification data from book visit: ", verificationData);
 
-        if (verificationData.status !== true || verificationData.data.status !== "success") {
-          return res.status(400).json({ message: "Paystack payment failed. Please try again." });
+        if (
+          verificationData.status !== true ||
+          verificationData.data.status !== "success"
+        ) {
+          return res
+            .status(400)
+            .json({ message: "Paystack payment failed. Please try again." });
         }
       } catch (paystackError) {
-        console.error("Paystack payment error:", paystackError.response?.data || paystackError.message);
-        return res.status(400).json({ message: "Paystack payment verification failed." });
+        console.error(
+          "Paystack payment error:",
+          paystackError.response?.data || paystackError.message
+        );
+        return res
+          .status(400)
+          .json({ message: "Paystack payment verification failed." });
       }
     }
 
-    // Generate a unique booking number
+    // Generate booking number and update user (existing code)
     const bookingNumber = await generateUniqueBookingNumber();
-
-    // Add the new booking
     await prisma.user.update({
       where: { email },
       data: {
@@ -552,90 +580,121 @@ export const bookVisit = asyncHandler(async (req, res) => {
             visitStatus: visitStatus || "pending",
             bookingStatus: "active",
             paymentMethod,
-            paymentStatus: paymentMethod === "pay_on_arrival" ? "pending" : "paid",
-            paymentReference, // Include the payment reference for Paystack
+            paymentStatus:
+              paymentMethod === "pay_on_arrival" ? "pending" : "paid",
+            paymentReference,
           },
         },
       },
     });
 
-    // Fetch property details
-    const property = await prisma.residency.findUnique({
-      where: { id },
-    });
-
-    if (!property) {
-      return res.status(404).json({ message: "Property not found" });
-    }
-
-    // Fetch the owner's details
+    // Fetch related data (existing code)
+    const property = await prisma.residency.findUnique({ where: { id } });
     const owner = await prisma.user.findUnique({
       where: { email: property.userEmail },
     });
+    const admins = await prisma.user.findMany({ where: { role: "admin" } });
 
-    // Fetch all admins
-    const admins = await prisma.user.findMany({
-      where: { role: "admin" },
-    });
+    // ========== FIXED EMAIL SECTION START ========== //
+    const formatDate = (dateString) => dayjs(dateString).format("MMMM D, YYYY");
+    const formatTime = (timeString) =>
+      dayjs(timeString, "HH:mm").format("h:mm A");
 
-    // Email content for user and admin
-    const userAdminEmailSubject = "Visit Booked Successfully";
-    const userAdminEmailText = `
-      Visit Details:
-      - Property: ${property.title}
-      - Date: ${date}
-      - Time: ${time}
-      - User: ${user.name}
-      - Address: ${user.address}
-      - Telephone: ${user.telephone}
-      - Booking Number: ${bookingNumber}
-      - Payment Method: ${paymentMethod}
-      - Payment Status: ${paymentStatus}
+    // Generate HTML table rows for booking details
+    const bookingDetailsRows = `
+      <tr>
+        <td style="padding: 8px; border: 1px solid #dee2e6; font-weight: bold;">Property</td>
+        <td style="padding: 8px; border: 1px solid #dee2e6;">${
+          property.title
+        }</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px; border: 1px solid #dee2e6; font-weight: bold;">Date</td>
+        <td style="padding: 8px; border: 1px solid #dee2e6;">${formatDate(
+          date
+        )}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px; border: 1px solid #dee2e6; font-weight: bold;">Time</td>
+        <td style="padding: 8px; border: 1px solid #dee2e6;">${formatTime(
+          time
+        )}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px; border: 1px solid #dee2e6; font-weight: bold;">Booking Number</td>
+        <td style="padding: 8px; border: 1px solid #dee2e6;">${bookingNumber}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px; border: 1px solid #dee2e6; font-weight: bold;">Payment Method</td>
+        <td style="padding: 8px; border: 1px solid #dee2e6;">${paymentMethod.toUpperCase()}</td>
+      </tr>
     `;
 
-    // Email content for owner
-    const ownerEmailSubject = "New Visit Booked for Your Property";
-    const ownerEmailText = `
-      Visit Details:
-      - Property: ${property.title}
-      - Date: ${date}
-      - Time: ${time}
-      - Booking Number: ${bookingNumber}
-      - Payment Method: ${paymentMethod}
-      - Payment Status: ${paymentStatus}
-    `;
+    // Prepare email data
+    const emailData = {
+      userName: user.name,
+      propertyTitle: property.title,
+      date: formatDate(date),
+      time: formatTime(time),
+      bookingNumber,
+      paymentMethod,
+      userPhone: user.telephone,
+      userAddress: user.address,
+      bookingDetailsRows,
+      year: new Date().getFullYear(),
+    };
 
-    // Send email to the user
-    try {
-      await sendEmail(email, userAdminEmailSubject, userAdminEmailText);
-    } catch (emailError) {
-      console.error("Failed to send email to user:", emailError);
-    }
+    // Email sending logic
+    const sendEmail = async (to, subject, template) => {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: { user: "idbsch2012@gmail.com", pass: "bmdu vqxi dgqj dqoi" },
+      });
 
-    // Send email to all admins
-    const adminEmails = admins.map((admin) => admin.email);
-    const adminEmailPromises = adminEmails.map((adminEmail) =>
-      sendEmail(adminEmail, userAdminEmailSubject, userAdminEmailText)
-    );
-
-    // Send email to the owner
-    try {
-      await sendEmail(owner.email, ownerEmailSubject, ownerEmailText);
-    } catch (emailError) {
-      console.error("Failed to send email to owner:", emailError);
-    }
+      await transporter.sendMail({
+        from: "idbsch2012@gmail.com",
+        to,
+        subject,
+        html: template,
+      });
+    };
 
     try {
-      await Promise.all(adminEmailPromises);
-    } catch (emailError) {
-      console.error("Failed to send email to admins:", emailError);
-    }
+      // User confirmation
+      const userTemplate = await getConfirmationEmail(emailData);
+      await sendEmail(email, "Visit Booked Successfully", userTemplate);
 
+      // Owner notification
+      const ownerTemplate = await getOwnerNotificationEmail(emailData);
+      await sendEmail(owner.email, "New Property Visit Booking", ownerTemplate);
+
+      // Admin notifications
+      const adminEmails = admins.map((admin) => admin.email);
+      const adminTemplates = await Promise.all(
+        adminEmails.map(() => getOwnerNotificationEmail(emailData))
+      );
+
+      await Promise.all(
+        adminEmails.map((email, i) =>
+          sendEmail(
+            email,
+            "New Visit Booking - Admin Notification",
+            adminTemplates[i]
+          )
+        )
+      );
+    } catch (emailError) {
+      console.error("Email sending error:", emailError);
+    }
+    // ========== FIXED EMAIL SECTION END ========== //
+
+    // Existing response remains unchanged
     res.json({
       message: "You have booked to visit the property successfully",
       bookingNumber,
     });
   } catch (error) {
+    // Existing error handling remains unchanged
     console.error("Booking error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
@@ -761,40 +820,97 @@ export const cancelBooking = asyncHandler(async (req, res) => {
       where: { role: "admin" },
     });
 
-    // Email content for user and admin
-    const userAdminEmailSubject = "Booking Cancelled";
-    const userAdminEmailText = `
-      Booking Cancelled:
-      - Property: ${property.title}
-      - Date: ${booking.date}
-      - Time: ${booking.time}
-      - User: ${user.name}
-      - Address: ${user.address}
-      - Telephone: ${user.telephone}
-    `;
+    // ========== FIXED EMAIL SECTION START ========== //
+    const formatDate = (dateString) => dayjs(dateString).format("MMMM D, YYYY");
+    const formatTime = (timeString) =>
+      dayjs(timeString, "HH:mm").format("h:mm A");
 
-    // Email content for owner
-    const ownerEmailSubject = "Visit Cancelled for Your Property";
-    const ownerEmailText = `
-      Booking Cancelled:
-      - Property: ${property.title}
-      - Date: ${booking.date}
-      - Time: ${booking.time}
-    `;
+    // Generate HTML table rows for booking details
+    const bookingDetailsRows = `
+          <tr>
+            <td style="padding: 8px; border: 1px solid #dee2e6; font-weight: bold;">Property</td>
+            <td style="padding: 8px; border: 1px solid #dee2e6;">${
+              property.title
+            }</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #dee2e6; font-weight: bold;">Date</td>
+            <td style="padding: 8px; border: 1px solid #dee2e6;">${formatDate(
+              booking.date
+            )}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #dee2e6; font-weight: bold;">Time</td>
+            <td style="padding: 8px; border: 1px solid #dee2e6;">${formatTime(
+              booking.time
+            )}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #dee2e6; font-weight: bold;">Booking Number</td>
+            <td style="padding: 8px; border: 1px solid #dee2e6;">${
+              booking.id
+            }</td>
+          </tr>
+        `;
 
-    // Send email to the user
-    await sendEmail(email, userAdminEmailSubject, userAdminEmailText);
+    // Prepare email data
+    const emailData = {
+      userName: user.name,
+      propertyTitle: property.title,
+      date: formatDate(booking.date),
+      time: formatTime(booking.time),
+      bookingNumber: booking.id,
+      paymentMethod: booking.paymentMethod,
+      userPhone: user.telephone,
+      userAddress: user.address,
+      bookingDetailsRows,
+      year: new Date().getFullYear(),
+    };
 
-    // Send email to all admins
-    const adminEmails = admins.map((admin) => admin.email);
-    const adminEmailPromises = adminEmails.map((adminEmail) =>
-      sendEmail(adminEmail, userAdminEmailSubject, userAdminEmailText)
-    );
+    // Email sending logic
+    const sendEmail = async (to, subject, template) => {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: { user: "idbsch2012@gmail.com", pass: "bmdu vqxi dgqj dqoi" },
+      });
 
-    // Send email to the owner
-    await sendEmail(owner.email, ownerEmailSubject, ownerEmailText);
+      await transporter.sendMail({
+        from: "idbsch2012@gmail.com",
+        to,
+        subject,
+        html: template,
+      });
+    };
 
-    await Promise.all(adminEmailPromises);
+    try {
+      // User confirmation
+      const userTemplate = await getVisitCancellationNotification(emailData);
+      await sendEmail(email, "Visit Cancelled Successfully", userTemplate);
+
+      // Owner notification
+      const ownerTemplate = await getOwnerVisitCancellation(emailData);
+      await sendEmail(owner.email, "Visit Cancelled", ownerTemplate);
+
+      // Admin notifications
+      const adminEmails = admins.map((admin) => admin.email);
+      const adminTemplates = await Promise.all(
+        adminEmails.map(() => getOwnerVisitCancellation(emailData))
+      );
+
+      await Promise.all(
+        adminEmails.map((email, i) =>
+          sendEmail(
+            email,
+            "Visit Cancelled - Admin Notification",
+            adminTemplates[i]
+          )
+        )
+      );
+    } catch (emailError) {
+      console.error("Email sending error:", emailError);
+    }
+
+    // ========== FIXED EMAIL SECTION END ========== //
 
     res.send("Booking cancelled successfully");
   } catch (error) {
@@ -894,7 +1010,6 @@ export const fetchAllBookings = asyncHandler(async (req, res) => {
     });
   }
 });
-// cancel booking
 
 // ================================================
 // update favourites/ add and remove
@@ -970,8 +1085,6 @@ export const editUserDetails = asyncHandler(async (req, res) => {
   const { email } = req.params; // Extract email from request parameters
   const { name, address, telephone, role, status } = req.body; // Extract updated fields from request body
 
-
-
   // Validate email
   if (!email) {
     return res.status(400).json({ message: "Email is required" });
@@ -1015,10 +1128,10 @@ export const editUserDetails = asyncHandler(async (req, res) => {
 
 // ==============================================================================
 
+// subscribe
 export const subscribe = asyncHandler(async (req, res) => {
   const { email } = req.body;
 
-  // Validate email
   if (!email || !email.includes("@")) {
     return res
       .status(400)
@@ -1026,55 +1139,105 @@ export const subscribe = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Check if email is already subscribed
     const existingSubscription = await prisma.subscription.findUnique({
       where: { email },
     });
-
     if (existingSubscription) {
       return res
         .status(400)
         .json({ error: "This email is already subscribed." });
     }
 
-    // Add email to subscriptions
-    await prisma.subscription.create({
-      data: { email },
-    });
+    await prisma.subscription.create({ data: { email } });
 
-    console.log("New subscription:", email);
-
-    // Send email to the user
-    await sendEmail(
+    // Send HTML email to user
+    const userEmailData = {
       email,
-      "Subscription Successful",
-      "Thank you for subscribing to our newsletter!"
-    );
+      year: new Date().getFullYear(),
+    };
+    const userEmailHtml = await getSubscriptionEmail(userEmailData);
+    await sendEmail(email, "Subscription Successful", userEmailHtml);
 
-    // Fetch all admins
-    const admins = await prisma.user.findMany({
-      where: { role: "admin" },
-    });
-
-    // Send email to all admins
+    // Send admin notifications
+    const admins = await prisma.user.findMany({ where: { role: "admin" } });
     const adminEmails = admins.map((admin) => admin.email);
-    const adminEmailPromises = adminEmails.map((adminEmail) =>
-      sendEmail(
-        adminEmail,
-        "New Subscriber",
-        `A new user with email ${email} has subscribed to the newsletter.`
-      )
+
+    const adminEmailData = {
+      subscriberEmail: email,
+      year: new Date().getFullYear(),
+    };
+    const adminEmailHtml = await getAdminSubscriptionNotification(
+      adminEmailData
     );
 
-    await Promise.all(adminEmailPromises);
+    await Promise.all(
+      adminEmails.map(async (adminEmail) => {
+        await sendEmail(
+          adminEmail,
+          "New Newsletter Subscriber",
+          adminEmailHtml
+        );
+      })
+    );
 
-    // Send success response
     res.status(200).json({ message: "Subscription successful!" });
   } catch (error) {
     console.error("Error saving subscription:", error);
     res
       .status(500)
       .json({ error: "An error occurred. Please try again later." });
+  }
+});
+
+// unsubscribe
+export const unSubscribe = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) return res.status(400).json({ error: "Email is required." });
+
+  try {
+    const existingSubscription = await prisma.subscription.findUnique({
+      where: { email },
+    });
+    if (!existingSubscription) {
+      return res
+        .status(404)
+        .json({ error: "Email not found in subscriptions." });
+    }
+
+    await prisma.subscription.delete({ where: { email } });
+
+    // Send HTML email to user
+    const userEmailData = {
+      email,
+      year: new Date().getFullYear(),
+      resubscribeLink: "https://yourdomain.com/subscribe",
+    };
+    const userEmailHtml = await getUnsubscriptionEmail(userEmailData);
+    await sendEmail(email, "Unsubscription Successful", userEmailHtml);
+
+    // Send admin notifications
+    const admins = await prisma.user.findMany({ where: { role: "admin" } });
+    const adminEmails = admins.map((admin) => admin.email);
+
+    const adminEmailData = {
+      unsubscribedEmail: email,
+      year: new Date().getFullYear(),
+    };
+    const adminEmailHtml = await getAdminSubscriptionNotification(
+      adminEmailData
+    );
+
+    await Promise.all(
+      adminEmails.map(async (adminEmail) => {
+        await sendEmail(adminEmail, "User Unsubscribed", adminEmailHtml);
+      })
+    );
+
+    res.status(200).json({ message: "Unsubscribed successfully!" });
+  } catch (error) {
+    console.error("Error unsubscribing:", error);
+    res.status(500).json({ error: "An error occurred while unsubscribing." });
   }
 });
 
@@ -1102,61 +1265,6 @@ export const fetchSingleSubscriptions = asyncHandler(async (req, res) => {
     res
       .status(500)
       .json({ error: "An error occurred while fetching the subscription." });
-  }
-});
-
-export const unSubscribe = asyncHandler(async (req, res) => {
-  const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: "Email is required." });
-  }
-
-  try {
-    // Check if the email exists in the subscriptions
-    const existingSubscription = await prisma.subscription.findUnique({
-      where: { email },
-    });
-
-    if (!existingSubscription) {
-      return res
-        .status(404)
-        .json({ error: "Email not found in subscriptions." });
-    }
-
-    // Delete the subscription
-    await prisma.subscription.delete({
-      where: { email },
-    });
-
-    // Send email to the user
-    await sendEmail(
-      email,
-      "Unsubscription Successful",
-      "You have successfully unsubscribed from our newsletter."
-    );
-
-    // Fetch all admins
-    const admins = await prisma.user.findMany({
-      where: { role: "admin" },
-    });
-
-    // Send email to all admins
-    const adminEmails = admins.map((admin) => admin.email);
-    const adminEmailPromises = adminEmails.map((adminEmail) =>
-      sendEmail(
-        adminEmail,
-        "User Unsubscribed",
-        `The user with email ${email} has unsubscribed from the newsletter.`
-      )
-    );
-
-    await Promise.all(adminEmailPromises);
-
-    res.status(200).json({ message: "Unsubscribed successfully!" });
-  } catch (error) {
-    console.error("Error unsubscribing:", error);
-    res.status(500).json({ error: "An error occurred while unsubscribing." });
   }
 });
 

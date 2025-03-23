@@ -20,9 +20,9 @@ dotenv.config();
 // addProperty.js
 // Initialize ImageKit
 const imagekit = new ImageKit({
-  publicKey: "public_vP03kKuO/cNqdZtbGP8emOr7oYw=",
-  privateKey: "private_dNaDI3BwGhqYpdBSB1CAce5uRYc=",
-  urlEndpoint: "https://ik.imagekit.io/yds4mej8p",
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
 });
 
 // Set up multer for file uploads

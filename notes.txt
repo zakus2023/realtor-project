@@ -10173,3 +10173,91 @@ Testing: 15-20 mins
 
 Let me know if you need help with any specific error messages or deployment issues!
 
+
+ERROR Fixing
+======================
+This error occurs because Render is looking for the package.json in the wrong directory. Let's fix this for your frontend deployment:
+
+1. Update Render Build Command
+Change your build command in Render to:
+
+bash
+Copy
+cd frontend && yarn install && yarn build
+2. Verify Frontend Structure
+Ensure your repository structure looks like:
+
+Copy
+realtor-project/
+├── api/          # Backend
+│   ├── package.json
+│   └── ...
+└── frontend/     # Frontend
+    ├── package.json
+    ├── vite.config.js
+    └── ...
+3. Add package-lock.json (Optional but Recommended)
+In your frontend directory:
+
+bash
+Copy
+rm -rf node_modules
+npm install
+git add package-lock.json
+git commit -m "Add lockfile"
+4. Update Render Configuration
+In Render dashboard for your frontend service:
+
+Build Command:
+
+bash
+Copy
+cd frontend && yarn install --frozen-lockfile && yarn build
+Publish Directory:
+
+bash
+Copy
+frontend/dist
+5. Verify package.json Scripts
+Ensure your frontend/package.json has:
+
+json
+Copy
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  }
+}
+6. Add .npmrc File (Optional)
+Create frontend/.npmrc with:
+
+ini
+Copy
+engine-strict=true
+node-linker=hoisted
+7. Commit and Redeploy
+After making these changes:
+
+bash
+Copy
+git add .
+git commit -m "Fix frontend build configuration"
+git push origin main
+This should resolve the "Couldn't find a package.json" error by properly directing Render to your frontend directory. The key fix is the cd frontend in the build command to navigate to the correct subdirectory before running yarn/npm commands.
+
+Still having issues? Let me know if you see any of these:
+
+ENOENT: no such file or directory errors
+
+Missing dependency warnings
+
+Vite-specific build failures
+
+Asset path issues in production
+
+ERROR Fixing
+==========================
+
+

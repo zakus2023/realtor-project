@@ -1,7 +1,7 @@
 import React, { useContext, useEffect } from "react"; // Import React and required hooks
 import "./Layout.css"; // Import the CSS for layout styling
 import Header from "../Components/Header/Header"; // Import Header component
-import Footer from "../Components/Footer/Footer"; // Import Footer component
+import Footer from '../Components/footer/Footer'; // Note lowercase 'c'
 import { Outlet } from "react-router-dom"; // React Router component for rendering child routes
 import { useAuth0 } from "@auth0/auth0-react"; // Auth0 authentication hook for user authentication
 import UserDetailsContext from "../context/UserDetailsContext"; // Context to manage user details globally

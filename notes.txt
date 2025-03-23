@@ -10014,3 +10014,162 @@ Check Backend URL: Go to https://your-backend-service.onrender.com/api/health (o
 Check Frontend URL: Your React app should load successfully.
 
 Test API Calls: Open the browser console and check if requests are going to the correct backend URL.
+
+
+DEPLOYMENT PROBLEMS SOLVED
+=====================================
+Backend deploy on Render
+Do the configurations and set the env variables
+
+- deleted package-json.lock file from api folder
+- added this to package.json: 
+
+
+This error occurs because your project requires Node.js v20.x, but Render is using Node.js v22.12.0 by default. Let's fix this:
+
+1. Specify Node.js Version in Render
+In your Render dashboard:
+
+Go to your service's "Environment" settings
+
+Add this environment variable:
+
+KEY: NODE_VERSION
+VALUE: 20
+2. Update package.json Engines
+Change your package.json to:
+
+  "engines": {
+    "node": "20.x",
+    "yarn": ">=1.22.19"
+  }
+
+3. Modify Build Command
+Change your build command in Render to:
+
+cd api && yarn install --ignore-engines && yarn prisma generate
+4. Remove Bun Specifier
+
+5. Add .node-version File (Optional)
+Create a new file .node-version in your project root: add this to the file : 20
+
+FRONTEND DEPLOYING
+======================
+Frontend (React/Vite) Deployment on Render
+Create Static Site
+
+In Render Dashboard: "New" → "Static Site"
+
+Connect GitHub repo (realtor-project/frontend)
+
+Configure settings:
+
+plaintext
+Copy
+Name: aethersoft-frontend
+Branch: main
+Build Command: yarn install && yarn build
+Publish Directory: dist
+Add environment variables:
+
+plaintext
+Copy
+VITE_API_URL = https://aethersoft-backend.onrender.com
+VITE_STRIPE_PUBLIC_KEY = <your-key>
+VITE_PAYPAL_CLIENT_ID = <your-id>
+VITE_IMAGEKIT_PUBLIC_KEY = <your-key>
+Configure Custom Domain (Optional)
+
+After deployment, go to your static site settings
+
+Add custom domain under "Custom Domains"
+
+3. Post-Deployment Configuration
+Update CORS in Backend
+In your backend code (api/src/app.js):
+
+javascript
+Copy
+app.use(cors({
+  origin: [
+    'https://aethersoft-frontend.onrender.com',
+    'http://localhost:5173'
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
+Redeploy Backend
+
+Trigger a manual redeploy after CORS changes
+
+4. Required Code Changes
+Frontend Configuration (frontend/vite.config.js):
+
+javascript
+Copy
+export default defineConfig({
+  plugins: [react()],
+  base: '/',
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://aethersoft-backend.onrender.com',
+        changeOrigin: true,
+        secure: true
+      }
+    }
+  }
+})
+Frontend Environment File (frontend/.env.production):
+
+env
+Copy
+VITE_API_URL=https://aethersoft-backend.onrender.com
+5. Render-Specific Settings
+Budget Control
+
+Keep free tier under 750 hours/month:
+
+Use same Render account for both services
+
+Pause development instances when not in use
+
+Auto-Deploy Setup
+
+Enable "Auto-Deploy" for both services
+
+Use webhooks for CI/CD integration
+
+6. Troubleshooting Render Deployments
+Issue	Solution
+Build Timeouts	Add render-build.sh with:
+#!/bin/bash<br>yarn install --frozen-lockfile<br>yarn build
+CORS Errors	Double-check origin URLs in backend CORS config
+Database Connection Issues	Whitelist Render's IP in DB provider
+Asset Loading Failures	Use absolute paths for assets in frontend
+7. Cost Estimation
+Service	Type	Monthly Cost
+Backend	Web Service	$0 (Free Tier)
+Frontend	Static Site	$0 (Free Tier)
+PostgreSQL	Database	$0 (Free Tier)
+8. Final Checklist
+Test payment processing flows
+
+Verify image uploads to ImageKit
+
+Check mobile responsiveness
+
+Test authentication flows
+
+Validate API endpoints with Postman
+
+Deployment Timeline:
+
+Frontend Setup: 10 mins
+
+Backend Reconfiguration: 5 mins
+
+Testing: 15-20 mins
+
+Let me know if you need help with any specific error messages or deployment issues!
+

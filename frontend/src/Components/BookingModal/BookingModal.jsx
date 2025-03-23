@@ -12,13 +12,10 @@ import StripePayment from "../StripePayment/StripePayment";
 import PaystackPayment from "../MTNPayment/PaystackPayment";
 import "./BookingModal.css";
 
-const stripePromise = loadStripe(
-  "pk_test_51N5quMDHDtaIvDO2nmKU2EZnqpoZvT3QUWUFzD79fu6Ht9iPxR2zrv5NJvxMZ98s1lTeRkmuXvTLQz82PEpcHnQB00lIceFH6V"
-);
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 const paypalOptions = {
-  "client-id":
-    "ASVLCVJ4a62t_sauBvKf93ifWTkn-4uooOK6Sdnx57USnTnkMADS3mja6sa1zdd8GfuoLUvPQR0aiowv",
+  "client-id": import.meta.env.VITE_PAYPAL_CLIENT_ID,
   currency: "USD",
 };
 
@@ -154,10 +151,7 @@ function BookingModal({ opened, setOpened, email, listingId }) {
             <Select.Option value="pay_on_arrival">Pay on Arrival</Select.Option>
             <Select.Option value="stripe">Stripe</Select.Option>
             <Select.Option value="paypal">PayPal</Select.Option>
-            <Select.Option value="mtn_mobile_money">
-              MTN Mobile Money
-            </Select.Option>
-            <Select.Option value="paystack">Paystack</Select.Option>
+            <Select.Option value="paystack">Mobile Money</Select.Option>
           </Select>
         </div>
         <div className="payment-buttons">
@@ -192,12 +186,7 @@ function BookingModal({ opened, setOpened, email, listingId }) {
               />
             </PayPalScriptProvider>
           )}
-          {paymentMethod === "mtn_mobile_money" && (
-            <MTNMobileMoneyPayment
-              onSuccess={() => handlePaymentSuccess("mtn_mobile_money")}
-              onFailure={handlePaymentFailure}
-            />
-          )}
+          
           {paymentMethod === "paystack" && (
             <PaystackPayment
               amount={10}

@@ -11,7 +11,7 @@ createRoot(document.getElementById("root")).render(
   clientId="7rwwJVBGjwYR4jdd8CG3E6wlnxcdWaPC"
   authorizationParams={{
     redirect_uri: window.location.origin + "/callback", // Auto-adapts to local/prod
-    audience: "http://localhost:5000", // Must match Auth0 API identifier
+    audience: "https://aethersoft-realtors.onrender.com", // Must match Auth0 API identifier
     scope: "openid profile email",
   }}
 >

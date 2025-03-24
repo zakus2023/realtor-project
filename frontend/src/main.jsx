@@ -10,7 +10,7 @@ createRoot(document.getElementById("root")).render(
       domain="dev-ccmy6um2itf0jid5.us.auth0.com"
       clientId="lHlNWSq1xLOkWXpViqAnLCjmT0hppfqq"
       authorizationParams={{
-        redirect_uri: "http://localhost:5173",
+        redirect_uri: "https://aethersoft-frontend.onrender.com/callback",
       }}
       audience="http://localhost:5000"
       scope="openid profile email"

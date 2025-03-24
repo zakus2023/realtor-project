@@ -4,7 +4,6 @@ import { UserOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "react-query";
 import { fetchUserDetails } from "../../utils/api";
-import { useAuth0 } from "@auth0/auth0-react";
 import UserDetailsContext from "../../context/UserDetailsContext";
 
 function ProfileMenu({ user, logout }) {

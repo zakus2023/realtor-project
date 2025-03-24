@@ -9,7 +9,9 @@
     "yarn": ">=1.22.19"
   },
   "scripts": {
-    "start": "nodemon index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "render-build": "prisma generate && prisma migrate deploy"
   },
   "dependencies": {
     "@paypal/checkout-server-sdk": "^1.0.3",
@@ -31,9 +33,11 @@
     "nanoid": "^5.1.4",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.10.0",
-    "nodemon": "^3.1.9",
     "prisma": "^6.3.0",
     "strip-html": "^1.0.2",
     "stripe": "^17.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
   }
 }

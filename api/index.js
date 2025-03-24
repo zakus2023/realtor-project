@@ -44,11 +44,12 @@ app.use(bodyParser.json());
 
 
 // API Routes
+app.get("/health", (req, res) => res.sendStatus(200)); // for render health check
 app.use("/api/user", userRoute);
 app.use("/api/residence", residenceRouter);
 
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log("Server is listening on port " + PORT);
 });

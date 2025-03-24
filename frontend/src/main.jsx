@@ -12,7 +12,7 @@ createRoot(document.getElementById("root")).render(
       authorizationParams={{
         redirect_uri: "https://aethersoft-frontend.onrender.com/callback",
       }}
-      audience="https://aethersoft-realtors.onrender.com"
+      audience="http://localhost:5000"
       scope="openid profile email"
     >
       <App />

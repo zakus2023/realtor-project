@@ -10260,4 +10260,197 @@ Asset path issues in production
 ERROR Fixing
 ==========================
 
+(Due to technical issues, the search service is temporarily unavailable.)
+
+This error indicates a file path resolution issue in your React components. Let's fix this step by step:
+
+1. Fix the Import Path
+In src/layout/Layout.jsx, change:
+
+jsx
+Copy
+import Footer from "../Components/Footer/Footer";
+To:
+
+jsx
+Copy
+import Footer from "../components/Footer/Footer"; // Note lowercase 'c'
+2. Verify File Structure
+Ensure your directory structure matches:
+
+Copy
+frontend/
+├── src/
+│   ├── components/  // Must be lowercase
+│   │   └── Footer/
+│   │       └── Footer.jsx
+│   └── layout/
+│       └── Layout.jsx
+3. Add File Extensions
+Update all component imports to include .jsx:
+
+jsx
+Copy
+import Footer from "../components/Footer/Footer.jsx";
+4. Fix Case Sensitivity (Critical for Linux Servers)
+Rename directories to be consistently lowercase:
+
+bash
+Copy
+git mv Components/ components/
+git mv Footer/Footer.jsx components/footer/Footer.jsx
+5. Update Render Configuration
+Add these environment variables:
+
+plaintext
+Copy
+NODE_VERSION = 20
+NODE_ENV = production
+Modify build command:
+
+bash
+Copy
+cd frontend && rm -rf node_modules && yarn install --frozen-lockfile && yarn build
+6. Remove Conflicting Lockfiles
+In your frontend directory:
+
+bash
+Copy
+rm package-lock.json
+git add .
+git commit -m "Remove conflicting lockfile"
+7. Fix React Version Warning
+Update react-outside-click-handler in package.json:
+
+json
+Copy
+"dependencies": {
+  "react-outside-click-handler": "^1.3.0"
+}
+Then:
+
+bash
+Copy
+cd frontend
+yarn add react-outside-click-handler@latest
+8. Test Locally Before Redeploying
+bash
+Copy
+cd frontend
+yarn install
+yarn build
+9. Final Directory Structure Validation
+Copy
+realtor-project/
+├── api/
+└── frontend/
+    ├── src/
+    │   ├── components/
+    │   │   └── footer/
+    │   │       ├── Footer.jsx
+    │   │       └── index.js
+    │   └── layout/
+    │       └── Layout.jsx
+    ├── package.json
+    └── yarn.lock
+After making these changes:
+
+Commit and push to GitHub
+
+Trigger redeploy in Render
+
+Monitor build logs for success
+
+Key Fixes:
+
+Linux servers are case-sensitive (Components → components)
+
+Explicit file extensions required in production builds
+
+Removed npm lockfile conflicting with Yarn
+
+Updated incompatible React dependency
+
+Forced Node.js v20 for compatibility
+
+Let me know if you need help with any of these steps or encounter new errors!
+
+FIX DEPLOY ERROR
+========================
+1. Fix Frontend Dependencies
+In your frontend/package.json:
+
+json
+Copy
+{
+  "dependencies": {
+    "vite": "^6.0.11"
+  }
+}
+2. Update Build Command
+Change Render's build command to:
+
+bash
+Copy
+cd frontend && rm -rf node_modules && yarn install --production=false && yarn build
+3. Clean Up Lockfiles
+In your repository root:
+
+bash
+Copy
+cd frontend
+rm -rf package-lock.json yarn.lock node_modules
+git add .
+git commit -m "Clean lockfiles"
+4. Reinstall Dependencies Locally
+bash
+Copy
+cd frontend
+yarn install
+yarn add vite@latest --dev
+git add package.json yarn.lock
+git commit -m "Update Vite dependencies"
+5. Verify Installation
+Ensure these exist in your frontend:
+
+bash
+Copy
+ls node_modules/.bin/vite # Should show vite executable
+cat package.json | grep vite # Should show vite in devDependencies
+6. Final Deployment Steps
+Push changes to GitHub
+
+Trigger redeploy in Render
+
+Monitor build logs
+
+Why This Happened:
+
+Missing vite in production dependencies
+
+Lockfile conflicts between Yarn/npm
+
+Node.js version mismatches
+
+Partial dependency installation
+
+Prevention Tips:
+
+Always commit both:
+
+package.json
+
+yarn.lock
+
+Remove package-lock.json if using Yarn
+
+Test builds locally before deploying:
+
+bash
+Copy
+cd frontend
+rm -rf node_modules
+yarn install
+yarn build
+Let me know if you need help resolving any remaining issues!
 

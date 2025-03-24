@@ -11,7 +11,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "render-build": "prisma generate && prisma migrate deploy"
+    "render-build": "prisma generate"
   },
   "dependencies": {
     "@paypal/checkout-server-sdk": "^1.0.3",
@@ -35,7 +35,10 @@
     "nodemailer": "^6.10.0",
     "prisma": "^6.3.0",
     "strip-html": "^1.0.2",
-    "stripe": "^17.7.0"
+    "stripe": "^17.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "cloudinary": "^1.21.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

@@ -5,6 +5,7 @@ import cors from "cors";
 import nodemailer from "nodemailer";
 import bodyParser from "body-parser";
 import cron from 'node-cron'
+import { PrismaClient } from '@prisma/client';
 
 // Import routes
 import userRoute from "./routes/userRoute.js";
@@ -47,7 +48,30 @@ app.use((err, req, res, next) => {
     res.status(401).json({ error: 'Invalid token' });
   }
 });
+
 app.use(bodyParser.json());
+
+// Initialize Prisma Client
+const prisma = new PrismaClient();
+
+// Add index creation here
+async function createIndexes() {
+  try {
+    await prisma.$runCommandRaw({
+      createIndexes: 'users', // Match your collection name
+      indexes: [{
+        key: { email: 1 }, // Example: index on email field
+        name: 'email_index'
+      }]
+    });
+    console.log('Database indexes created successfully');
+  } catch (error) {
+    console.error('Error creating indexes:', error);
+  }
+}
+
+// Run index creation before starting server
+createIndexes();
 
 
 // API Routes

@@ -8,7 +8,7 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <Auth0Provider
       domain="dev-ccmy6um2itf0jid5.us.auth0.com"
-      clientId="lHlNWSq1xLOkWXpViqAnLCjmT0hppfqq"
+      clientId="7rwwJVBGjwYR4jdd8CG3E6wlnxcdWaPC"
       authorizationParams={{
         redirect_uri: "https://aethersoft-frontend.onrender.com/callback",
       }}

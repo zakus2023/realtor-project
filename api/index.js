@@ -40,11 +40,18 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE"] // Explicitly allowed methods
   })
 );
+
+// Add CORS error handling
+app.use((err, req, res, next) => {
+  if (err.name === 'UnauthorizedError') {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
 app.use(bodyParser.json());
 
 
 // API Routes
-app.get("/health", (req, res) => res.sendStatus(200)); // for render health check
+app.get("/healthz", (req, res) => res.sendStatus(200)); // for render health check
 app.use("/api/user", userRoute);
 app.use("/api/residence", residenceRouter);
 

@@ -29,7 +29,17 @@ updateExpiredBookings();
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 app.use(cookieParser());
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+// Allow specific origins and credentials
+app.use(
+  cors({
+    origin: [
+      "https://aethersoft-frontend.onrender.com", // Production
+      "http://localhost:5173"                     // Local dev (Vite default)
+    ],
+    credentials: true, // Required for cookies/auth headers
+    methods: ["GET", "POST", "PUT", "DELETE"] // Explicitly allowed methods
+  })
+);
 app.use(bodyParser.json());
 
 

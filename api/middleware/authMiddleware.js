@@ -1,8 +1,5 @@
-import {
-  createClerkClient,
-  ClerkExpressRequireAuth,
-} from "@clerk/clerk-sdk-node";
-import User from "../models/user.js";
+import { ClerkExpressRequireAuth, createClerkClient } from '@clerk/clerk-sdk-node';
+import User from '../models/user.js';
 import dotenv from "dotenv";
 import Residency from "../models/residency.js";
 

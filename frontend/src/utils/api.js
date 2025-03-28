@@ -229,36 +229,43 @@ export const editPropertyApiCallFunction = async ({
   token,
 }) => {
   try {
-    // Create a FormData object
     const formData = new FormData();
 
-    // Append form fields to FormData
+    // Preserve existing files
+    const existingImages = payload.images
+      .filter(img => img.url)
+      .map(img => img.url);
+    const existingDocs = payload.documentations
+      .filter(doc => doc.url)
+      .map(doc => doc.url);
+
+    formData.append('existingImages', JSON.stringify(existingImages));
+    formData.append('existingDocs', JSON.stringify(existingDocs));
+
+    // Original code remains unchanged below
     for (const key in payload) {
       if (key === "facilities") {
-        // Convert facilities object to a JSON string
         formData.append(key, JSON.stringify(payload[key]));
       } else if (key === "images" || key === "documentations") {
-        // Append files
         payload[key].forEach((file) => {
-          formData.append(key, file.originFileObj); // Append the file object
+          if (file.originFileObj) {
+            formData.append(key, file.originFileObj);
+          }
         });
       } else {
-        // Append other fields
         formData.append(key, payload[key]);
       }
     }
 
-    // Append email to the FormData
     formData.append("email", email);
 
-    // Send the request with FormData
     const response = await api.put(
       `/api/residence/editProperty/${id}`,
       formData,
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data", // Use multipart/form-data for file uploads
+          "Content-Type": "multipart/form-data",
         },
       }
     );

@@ -1,4 +1,3 @@
-// utils/clerk.js
 import { createClerkClient } from '@clerk/clerk-sdk-node';
 import dotenv from "dotenv";
 

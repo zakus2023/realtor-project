@@ -5,6 +5,7 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import cron from 'node-cron';
 import mongoose from 'mongoose';
+import { ClerkExpressRequireAuth, createClerkClient } from '@clerk/clerk-sdk-node';
 
 // Routes
 import userRoute from './routes/userRoute.js';
@@ -15,6 +16,11 @@ import { updateExpiredBookings } from './controllers/userController.js';
 dotenv.config();
 const PORT = process.env.PORT || 5000;
 const app = express();
+
+// Initialize Clerk
+const clerkClient = createClerkClient({
+  secretKey: process.env.CLERK_SECRET_KEY,
+});
 
 // Database connection
 const connectDB = async () => {

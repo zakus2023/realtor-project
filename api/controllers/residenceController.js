@@ -259,6 +259,9 @@ export const addProperty = asyncHandler(async (req, res) => {
 });
 // =====================================
 // EDIT PROPERTY
+// controllers/residenceController.js
+
+
 export const editProperty = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
@@ -277,6 +280,8 @@ export const editProperty = asyncHandler(async (req, res) => {
       tenureType,
       facilities,
       imagesCount,
+      existingImages = "[]",
+      existingDocs = "[]"
     } = req.body;
 
     // 1. Find existing property
@@ -289,12 +294,11 @@ export const editProperty = asyncHandler(async (req, res) => {
     }
 
     // 2. Handle file uploads
-    let imageUrls = existingProperty.images;
-    let documentationUrls = existingProperty.documentations;
+    let imageUrls = JSON.parse(existingImages);
+    let documentationUrls = JSON.parse(existingDocs);
     const files = req.files;
 
     if (files && files.length > 0) {
-      // Upload new files to ImageKit
       const uploadPromises = files.map((file) =>
         imagekit.upload({
           file: file.buffer,
@@ -306,20 +310,25 @@ export const editProperty = asyncHandler(async (req, res) => {
       const results = await Promise.all(uploadPromises);
       const fileUrls = results.map((result) => result.url);
 
-      // Split into images and documents
-      imageUrls = fileUrls.slice(0, parseInt(imagesCount, 10));
-      documentationUrls = fileUrls.slice(parseInt(imagesCount, 10));
+      // Merge existing and new files
+      imageUrls = [
+        ...imageUrls,
+        ...fileUrls.slice(0, parseInt(imagesCount, 10))
+      ];
+      documentationUrls = [
+        ...documentationUrls,
+        ...fileUrls.slice(parseInt(imagesCount, 10))
+      ];
     }
 
-    // 3. Detect status changes
+    // 3. Status change detection
     const statusChangedToPublished = 
       status === "published" && existingProperty.status !== "published";
     const statusChangedToUnpublished = 
       status === "unpublished" && existingProperty.status !== "unpublished";
 
-    // 4. Handle notifications for status changes
+    // 4. Notifications
     if (statusChangedToPublished || statusChangedToUnpublished) {
-      // Find property owner
       const owner = await User.findOne({ email: existingProperty.userEmail });
       if (!owner) {
         return res.status(400).json({
@@ -328,28 +337,26 @@ export const editProperty = asyncHandler(async (req, res) => {
         });
       }
 
-      // Prepare email content
       const emailSubject = statusChangedToPublished
         ? "New Property Published!"
         : "Property Unpublished";
 
-      // Send owner notification
+      // Owner notification
       await sendEmail(
         owner.email,
         emailSubject,
         getPropertyPublished({
           mainImage: imageUrls[0] || 'https://via.placeholder.com/600x400',
           propertyTitle: title,
-          shortDescription: description || 'Property description not available',
+          shortDescription: description || 'No description',
           formattedPrice: `$${parseFloat(price).toFixed(2)}`,
           viewLink: `${process.env.FRONTEND_URL}/listing/${id}`
         })
       );
 
-      // Notify admins
+      // Admin notifications
       const admins = await User.find({ role: "admin" });
       const adminEmails = admins.map((admin) => admin.email);
-
       const adminEmailContent = getPropertyCreatedAdminEmail({
         propertyTitle: title,
         ownerEmail: owner.email,
@@ -363,7 +370,7 @@ export const editProperty = asyncHandler(async (req, res) => {
         )
       );
 
-      // Notify subscribers if published
+      // Subscriber notifications (only for publishing)
       if (statusChangedToPublished) {
         const subscribers = await Subscription.find().select("email");
         await Promise.all(
@@ -371,9 +378,7 @@ export const editProperty = asyncHandler(async (req, res) => {
             const content = getPropertyPublished({
               mainImage: imageUrls[0] || 'https://via.placeholder.com/600x400',
               propertyTitle: title,
-              shortDescription: description 
-                ? description.slice(0, 100) + (description.length > 100 ? "..." : "")
-                : 'Property description not available',
+              shortDescription: description?.slice(0, 100) + '...' || 'No description',
               formattedPrice: `$${parseFloat(price).toFixed(2)}`,
               viewLink: `${process.env.FRONTEND_URL}/listing/${id}`,
               unsubscribeLink: `${process.env.FRONTEND_URL}/unsubscribe/${subscriber.id}`
@@ -381,7 +386,7 @@ export const editProperty = asyncHandler(async (req, res) => {
 
             return sendEmail(
               subscriber.email,
-              `New Property Available: ${title}`,
+              `New Property: ${title}`,
               content
             );
           })
@@ -389,7 +394,7 @@ export const editProperty = asyncHandler(async (req, res) => {
       }
     }
 
-    // 5. Update property in database
+    // 5. Update property
     const updatedResidency = await Residency.findByIdAndUpdate(
       id,
       {
@@ -414,7 +419,7 @@ export const editProperty = asyncHandler(async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    // 6. Return success response
+    // 6. Response
     res.status(200).json({
       success: true,
       message: "Property updated successfully",
@@ -430,7 +435,6 @@ export const editProperty = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error("Property update error:", error);
     
-    // Handle different error types
     const response = {
       success: false,
       message: "Failed to update property",

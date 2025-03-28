@@ -1,8 +1,8 @@
 import express from "express";
+import { attachUser, requireAuth } from "../middleware/authMiddleware.js"; // Added requireAuth import
 import {
   bookVisit,
   cancelBooking,
-  createPaymentIntent,
   createUser,
   editUserDetails,
   fetchAllBookings,
@@ -20,31 +20,33 @@ import {
   updateVisitStatusFromAdmin,
   userFavourites,
   verifyMoMoPayment,
+  createPaymentIntent
 } from "../controllers/userController.js";
-import jwtCheck from "../config/auth0Config.js";
 
 const router = express.Router();
 
+// Public routes
 router.post("/register", createUser);
-router.post("/bookVisit/:id", jwtCheck, bookVisit);
-router.get("/userDetails/:email", jwtCheck, fetchUserDetails);
-router.put("/editUserDetails/:email", jwtCheck, editUserDetails);
-router.get("/fetchAllUsers/:role", jwtCheck, fetchAllUsers);
-router.post("/bookedVisits", jwtCheck, fetchUserBookings);
-router.post("/cancelBooking/:id", jwtCheck, cancelBooking);
-router.post("/addFavourites/:resId", jwtCheck, userFavourites);
-router.post("/fetchUserfavourites", jwtCheck, fetchUserFavourites);
-router.get("/fetchAllBookings", jwtCheck, fetchAllBookings);
-router.post("/subscribe", jwtCheck, subscribe);
-router.get("/getSubscription", jwtCheck, fetchSingleSubscriptions)
-router.delete("/unsubscribe", jwtCheck, unSubscribe)
-router.get("/fetchAllSubscriptions", jwtCheck, fetchAllSubscriptions)
-router.put("/:userEmail/bookings/:bookingId", jwtCheck, updateVisitStatusFromAdmin)
-router.post("/stripe/create-payment-intent", createPaymentIntent)
+router.post("/stripe/create-payment-intent", createPaymentIntent);
 router.get("/payment-status", getPaymentStatus);
 router.post("/paystack/momo", payWithMoMo);
 router.get("/paystack/verify", verifyMoMoPayment);
 router.post("/paystack/webhook", paystackWebhook);
 
+// Authenticated routes
+router.post("/bookVisit/:id", requireAuth, attachUser, bookVisit); // Added requireAuth
+router.get("/userDetails/:email", requireAuth, attachUser, fetchUserDetails);
+router.put("/editUserDetails/:email", requireAuth, attachUser, editUserDetails);
+router.get("/fetchAllUsers/:role", requireAuth, attachUser, fetchAllUsers);
+router.post("/bookedVisits", requireAuth, attachUser, fetchUserBookings);
+router.post("/cancelBooking/:id", requireAuth, attachUser, cancelBooking);
+router.post("/addFavourites/:resId", requireAuth, attachUser, userFavourites);
+router.post("/fetchUserfavourites", requireAuth, attachUser, fetchUserFavourites);
+router.get("/fetchAllBookings", requireAuth, attachUser, fetchAllBookings);
+router.post("/subscribe", requireAuth, attachUser, subscribe);
+router.get("/getSubscription", requireAuth, attachUser, fetchSingleSubscriptions);
+router.delete("/unsubscribe", requireAuth, attachUser, unSubscribe);
+router.get("/fetchAllSubscriptions", requireAuth, attachUser, fetchAllSubscriptions);
+router.put("/:userEmail/bookings/:bookingId", requireAuth, attachUser, updateVisitStatusFromAdmin);
 
 export default router;

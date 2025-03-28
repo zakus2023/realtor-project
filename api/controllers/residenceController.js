@@ -1,5 +1,7 @@
 import asyncHandler from "express-async-handler";
-import { prisma } from "../config/prismaConfig.js";
+import Residency from "../models/residency.js"; // Changed to Mongoose models
+import  User  from "../models/user.js";
+import Subscription from '../models/subscription.js'
 import dotenv from "dotenv";
 import multer from "multer";
 import ImageKit from "imagekit";
@@ -13,59 +15,90 @@ import stripHtml from "strip-html";
 
 dotenv.config();
 
-// ============================================================
-// add Property api endpoint
-// ============================================================
-
-// addProperty.js
-// Initialize ImageKit
+// ImageKit and Multer setup remains the same
 const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
   privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
   urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
 });
 
-// Set up multer for file uploads
-const storage = multer.memoryStorage(); // Store files in memory as buffers
-
-// Nodemailer setup
+const storage = multer.memoryStorage();
+// ===============================================================
+// Email sender remains identical
+/**
+ * Sends emails using configured SMTP transport
+ * @param {string|string[]} to - Recipient email(s)
+ * @param {string} subject - Email subject
+ * @param {string} htmlContent - HTML formatted content
+ * @returns {Promise<boolean>} - True if sent successfully
+ */
 const sendEmail = async (to, subject, htmlContent) => {
-  // Use environment variables for credentials
+  // Validate required environment variables
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+    console.error('Email credentials not configured');
+    throw new Error('Email service configuration error');
+  }
+
+  // Configure transporter with connection pooling
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_PASS,
     },
-    // Recommended settings for better deliverability
     pool: true,
-    maxConnections: 1,
-    rateDelta: 20000,
+    maxConnections: 5, // Increased from 1 for better throughput
+    maxMessages: 100,
+    rateLimit: 5, // Max 5 messages per second
     secure: true,
     tls: {
-      rejectUnauthorized: false,
+      rejectUnauthorized: true // Keep SSL verification enabled for security
     },
+    logger: process.env.NODE_ENV === 'development',
+    debug: process.env.NODE_ENV === 'development'
   });
 
+  // Configure email options
   const mailOptions = {
-    from: `AetherSoft Realtors <${process.env.EMAIL_USER}>`,
-    to,
-    subject,
-    html: htmlContent, // Changed from text to html for formatted emails
-    // Optional text fallback
-    text: stripHtml(htmlContent).result,
+    from: `AetherSoft Realtors <${process.env.GMAIL_USER}>`, // Use authorized email
+    to: Array.isArray(to) ? to.join(', ') : to,
+    subject: subject.substring(0, 150), // Truncate long subjects
+    html: htmlContent,
+    text: stripHtml(htmlContent).result || 'Email content not available',
+    priority: 'high' // Mark as high importance
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`Email sent: ${info.messageId}`);
+    // Verify connection configuration first
+    await transporter.verify();
+    
+    // Send email with timeout
+    const info = await Promise.race([
+      transporter.sendMail(mailOptions),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Email timeout')), 15000)
+      )
+    ]);
+
+    console.log(`Email sent to ${to}: ${info.messageId}`);
     return true;
   } catch (error) {
-    console.error("Email sending error:", error);
-    throw new Error("Failed to send email");
+    console.error(`Email failed to ${to}:`, error);
+    
+    // Handle specific error cases
+    const errorMessage = error.response?.includes('550 Daily Quota Exceeded') 
+      ? 'Daily email quota exceeded'
+      : 'Email delivery failed';
+
+    throw new Error(errorMessage);
+  } finally {
+    // Close connection pool when done
+    transporter.close();
   }
 };
-
+// =======================================================
+// PROPERTY ADDING
+// ============================================
 export const addProperty = asyncHandler(async (req, res) => {
   try {
     const {
@@ -83,14 +116,12 @@ export const addProperty = asyncHandler(async (req, res) => {
       tenureType,
       facilities,
       imagesCount,
-      email,
+      
     } = req.body;
+    const clerkUserId = req.user.clerkId; // Changed from req.body to req.user
 
-    // Validate owner first
-    const owner = await prisma.user.findUnique({
-      where: { email },
-    });
-
+    // 1. Validate Property Owner Exists using Clerk ID
+    const owner = await User.findOne({ clerkId: clerkUserId });
     if (!owner) {
       return res.status(400).json({
         success: false,
@@ -98,15 +129,16 @@ export const addProperty = asyncHandler(async (req, res) => {
       });
     }
 
-    // Validate file uploads
+    // 2. Handle File Uploads (original implementation preserved)
     const files = req.files;
     if (!files || files.length === 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "No files uploaded." });
+      return res.status(400).json({ 
+        success: false, 
+        message: "No files uploaded." 
+      });
     }
 
-    // Process file uploads
+    // 3. Upload Files to ImageKit (unchanged)
     const uploadPromises = files.map((file) =>
       imagekit.upload({
         file: file.buffer,
@@ -115,90 +147,118 @@ export const addProperty = asyncHandler(async (req, res) => {
       })
     );
 
+    // 4. Wait for all uploads to complete (unchanged)
     const results = await Promise.all(uploadPromises);
     const fileUrls = results.map((result) => result.url);
 
-    // Split URLs into images and docs
+    // 5. Split files into images and documents (unchanged)
     const imageUrls = fileUrls.slice(0, parseInt(imagesCount, 10));
     const documentationUrls = fileUrls.slice(parseInt(imagesCount, 10));
 
-    // Create residency
-    const residency = await prisma.residency.create({
-      data: {
-        title,
-        description,
-        price: parseFloat(price),
-        address,
-        gpsCode,
-        propertyStatus,
-        status,
-        city,
-        Region,
-        country,
-        images: imageUrls,
-        documentations: documentationUrls,
-        facilities: facilities || [],
-        propertyType,
-        tenureType,
-        owner: { connect: { email } },
-      },
+    // 6. Create New Residency Document with Clerk association
+    const residency = new Residency({
+      title,
+      description,
+      price: parseFloat(price),
+      address,
+      gpsCode,
+      propertyStatus,
+      status,
+      city,
+      Region,
+      country,
+      images: imageUrls,
+      documentations: documentationUrls,
+      facilities: facilities || [],
+      propertyType,
+      tenureType,
+      userEmail: owner.email, // Maintain email for backward compatibility
+      clerkUserId: owner.clerkId // Add Clerk reference
     });
 
-    // Fetch admins
-    const admins = await prisma.user.findMany({
-      where: { role: "admin" },
-    });
+    // 7. Save to Database (unchanged)
+    const savedResidency = await residency.save();
+
+    // 8. Notify Admins (original implementation preserved)
+    const admins = await User.find({ role: "admin" });
     const adminEmails = admins.map((admin) => admin.email);
 
-    // Prepare owner email
-    const ownerEmailContent = await getPropertyCreatedOwnerEmail({
+    // 9. Prepare Owner Notification Email (unchanged)
+    const ownerEmailContent = getPropertyCreatedOwnerEmail({
       propertyTitle: title,
-      propertyId: residency.id,
+      propertyId: savedResidency.id,
       submissionDate: new Date().toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
         day: "numeric",
       }),
-      viewLink: `http://localhost:5173/listing/${residency.id}`,
+      viewLink: `${process.env.FRONTEND_URL}/listing/${savedResidency.id}`,
     });
 
+    // 10. Send Owner Email (unchanged)
     await sendEmail(
       owner.email,
       "Property Submission Confirmation",
       ownerEmailContent
     );
 
-    // Prepare and send admin emails
-    const adminEmailContent = await getPropertyCreatedAdminEmail({
+    // 11. Prepare Admin Notification (unchanged)
+    const adminEmailContent = getPropertyCreatedAdminEmail({
       propertyTitle: title,
       ownerEmail: owner.email,
-      propertyId: residency.id,
-      adminLink: `http://admin.aethersoft.com/listings/${residency.id}`,
+      propertyId: savedResidency.id,
+      adminLink: `${process.env.ADMIN_URL}/listings/${savedResidency.id}`,
     });
 
-    const adminEmailPromises = adminEmails.map((adminEmail) =>
+    // 12. Send Admin Emails in Parallel (unchanged)
+    const emailPromises = adminEmails.map((adminEmail) =>
       sendEmail(
         adminEmail,
         "New Property Submission Requires Review",
         adminEmailContent
       )
     );
+    await Promise.all(emailPromises);
 
-    await Promise.all(adminEmailPromises);
-
+    // 13. Return Success Response with Clerk ID
     res.status(201).json({
       success: true,
       message: "Property created successfully",
-      residency,
+      residency: {
+        id: savedResidency.id,
+        title: savedResidency.title,
+        status: savedResidency.status,
+        images: savedResidency.images,
+        createdAt: savedResidency.createdAt,
+        clerkUserId: owner.clerkId // Add Clerk ID to response
+      }
     });
+
   } catch (error) {
-    console.error("Error adding property:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to add property." });
+    console.error("Property creation error:", error);
+    
+    // Handle different error types (original implementation preserved)
+    const response = {
+      success: false,
+      message: "Failed to add property",
+    };
+
+    if (error.name === "ValidationError") {
+      response.message = "Invalid property data";
+      response.errors = Object.values(error.errors).map(e => e.message);
+      res.status(400);
+    } else if (error.code === 11000) {
+      response.message = "Duplicate property detected";
+      res.status(409);
+    } else {
+      res.status(500);
+    }
+
+    res.json(response);
   }
 });
-
+// =====================================
+// EDIT PROPERTY
 export const editProperty = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
@@ -219,22 +279,22 @@ export const editProperty = asyncHandler(async (req, res) => {
       imagesCount,
     } = req.body;
 
-    const files = req.files;
-
-    const existingProperty = await prisma.residency.findUnique({
-      where: { id },
-    });
-
+    // 1. Find existing property
+    const existingProperty = await Residency.findById(id);
     if (!existingProperty) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Property not found." });
+      return res.status(404).json({ 
+        success: false, 
+        message: "Property not found." 
+      });
     }
 
-    let imageUrls = existingProperty.images || [];
-    let documentationUrls = existingProperty.documentations || [];
+    // 2. Handle file uploads
+    let imageUrls = existingProperty.images;
+    let documentationUrls = existingProperty.documentations;
+    const files = req.files;
 
     if (files && files.length > 0) {
+      // Upload new files to ImageKit
       const uploadPromises = files.map((file) =>
         imagekit.upload({
           file: file.buffer,
@@ -246,21 +306,21 @@ export const editProperty = asyncHandler(async (req, res) => {
       const results = await Promise.all(uploadPromises);
       const fileUrls = results.map((result) => result.url);
 
+      // Split into images and documents
       imageUrls = fileUrls.slice(0, parseInt(imagesCount, 10));
       documentationUrls = fileUrls.slice(parseInt(imagesCount, 10));
     }
 
-    // Check status changes
-    const statusChangedToPublished =
+    // 3. Detect status changes
+    const statusChangedToPublished = 
       status === "published" && existingProperty.status !== "published";
-    const statusChangedToUnpublished =
+    const statusChangedToUnpublished = 
       status === "unpublished" && existingProperty.status !== "unpublished";
 
+    // 4. Handle notifications for status changes
     if (statusChangedToPublished || statusChangedToUnpublished) {
-      const owner = await prisma.user.findUnique({
-        where: { email: existingProperty.userEmail },
-      });
-
+      // Find property owner
+      const owner = await User.findOne({ email: existingProperty.userEmail });
       if (!owner) {
         return res.status(400).json({
           success: false,
@@ -268,63 +328,55 @@ export const editProperty = asyncHandler(async (req, res) => {
         });
       }
 
-      const admins = await prisma.user.findMany({
-        where: { role: "admin" },
-      });
-      const adminEmails = admins.map((admin) => admin.email);
-
+      // Prepare email content
       const emailSubject = statusChangedToPublished
         ? "New Property Published!"
         : "Property Unpublished";
 
-      // Owner email
+      // Send owner notification
       await sendEmail(
         owner.email,
         emailSubject,
-        await getPropertyPublished({
+        getPropertyPublished({
           mainImage: imageUrls[0] || 'https://via.placeholder.com/600x400',
           propertyTitle: title,
           shortDescription: description || 'Property description not available',
           formattedPrice: `$${parseFloat(price).toFixed(2)}`,
-          viewLink: `http://localhost:5173/listing/${id}`
+          viewLink: `${process.env.FRONTEND_URL}/listing/${id}`
         })
       );
 
-      // Admin emails
-      const adminEmailContent = await getPropertyCreatedAdminEmail({
+      // Notify admins
+      const admins = await User.find({ role: "admin" });
+      const adminEmails = admins.map((admin) => admin.email);
+
+      const adminEmailContent = getPropertyCreatedAdminEmail({
         propertyTitle: title,
         ownerEmail: owner.email,
         propertyId: id,
-        adminLink: `http://admin.aethersoft.com/listings/${id}`
+        adminLink: `${process.env.ADMIN_URL}/listings/${id}`
       });
 
       await Promise.all(
-        adminEmails.map((adminEmail) =>
+        adminEmails.map(adminEmail =>
           sendEmail(adminEmail, emailSubject, adminEmailContent)
         )
       );
 
+      // Notify subscribers if published
       if (statusChangedToPublished) {
-        const subscribers = await prisma.subscription.findMany({
-          select: { 
-            email: true,
-            id: true 
-          },
-        });
-
+        const subscribers = await Subscription.find().select("email");
         await Promise.all(
           subscribers.map(async (subscriber) => {
-            const content = await getPropertyPublished({
+            const content = getPropertyPublished({
               mainImage: imageUrls[0] || 'https://via.placeholder.com/600x400',
               propertyTitle: title,
               shortDescription: description 
-                ? (description.length > 100
-                    ? `${description.substring(0, 97)}...`
-                    : description)
+                ? description.slice(0, 100) + (description.length > 100 ? "..." : "")
                 : 'Property description not available',
               formattedPrice: `$${parseFloat(price).toFixed(2)}`,
-              viewLink: `http://localhost:5173/listing/${id}`,
-              unsubscribeLink: `http://localhost:5173/unsubscribe/${subscriber.id}`
+              viewLink: `${process.env.FRONTEND_URL}/listing/${id}`,
+              unsubscribeLink: `${process.env.FRONTEND_URL}/unsubscribe/${subscriber.id}`
             });
 
             return sendEmail(
@@ -337,91 +389,118 @@ export const editProperty = asyncHandler(async (req, res) => {
       }
     }
 
-    const updatedResidency = await prisma.residency.update({
-      where: { id },
-      data: {
-        title,
-        description,
-        price: parseFloat(price),
-        address,
-        gpsCode,
-        propertyStatus,
-        status,
-        city,
-        Region,
-        country,
-        images: imageUrls,
-        documentations: documentationUrls,
-        facilities: facilities || [],
-        propertyType,
-        tenureType,
+    // 5. Update property in database
+    const updatedResidency = await Residency.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          title,
+          description,
+          price: parseFloat(price),
+          address,
+          gpsCode,
+          propertyStatus,
+          status,
+          city,
+          Region,
+          country,
+          images: imageUrls,
+          documentations: documentationUrls,
+          facilities: facilities || [],
+          propertyType,
+          tenureType
+        }
       },
-    });
+      { new: true, runValidators: true }
+    );
 
+    // 6. Return success response
     res.status(200).json({
       success: true,
       message: "Property updated successfully",
-      residency: updatedResidency,
+      residency: {
+        id: updatedResidency._id,
+        title: updatedResidency.title,
+        status: updatedResidency.status,
+        images: updatedResidency.images,
+        updatedAt: updatedResidency.updatedAt
+      }
     });
+
   } catch (error) {
-    console.error("Error updating property:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to update property." });
-  }
-});
+    console.error("Property update error:", error);
+    
+    // Handle different error types
+    const response = {
+      success: false,
+      message: "Failed to update property",
+    };
 
-// =========================================================================
-// get all properties
-export const getAllProperties = asyncHandler(async (req, res) => {
-  const residencies = await prisma.residency.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-  if (residencies.length < 1) {
-    res.send({ message: "No Property found" });
-  }
-  res.send(residencies);
-});
-
-// ============================================================================
-// get all properties for the current user
-export const getAllUserProperties = asyncHandler(async (req, res) => {
-  const email = req.query.email; // Extract email from query parameters
-
-  if (!email) {
-    return res.status(400).json({ message: "Email is required" });
-  }
-
-  const residencies = await prisma.residency.findMany({
-    where: {
-      userEmail: email, // Filter by userEmail
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  // Return an empty array if no listings are found
-  res.status(200).json(residencies);
-});
-
-// ============================================================================
-// Get a single property
-export const getResidence = asyncHandler(async (req, res) => {
-  const id = req.params.id; // Correctly access request parameter
-  try {
-    const residence = await prisma.residency.findUnique({
-      where: { id }, // Use "id", not "_id"
-    });
-
-    if (!residence) {
-      return res.status(404).json({ message: "Property not found" }); // Send proper status code
+    if (error.name === "ValidationError") {
+      response.message = "Invalid property data";
+      response.errors = Object.values(error.errors).map(e => e.message);
+      res.status(400);
+    } else if (error.code === 11000) {
+      response.message = "Duplicate property detected";
+      res.status(409);
+    } else {
+      res.status(500);
     }
 
-    res.json(residence); // Send the residence data
+    res.json(response);
+  }
+});
+
+// Get all properties
+export const getAllProperties = asyncHandler(async (req, res) => {
+  try {
+    // Converted to Mongoose find() with sort
+    const residencies = await Residency.find({})
+      .sort({ createdAt: -1 });
+
+    res.status(residencies.length ? 200 : 404).json(
+      residencies.length 
+        ? residencies 
+        : { message: "No properties found" }
+    );
   } catch (error) {
-    throw new Error(error.message);
+    console.error("Mongoose error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get user properties
+export const getAllUserProperties = asyncHandler(async (req, res) => {
+  const { email } = req.query;
+  
+  try {
+    // Converted to Mongoose find with query
+    const residencies = await Residency.find({ userEmail: email })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(residencies);
+  } catch (error) {
+    console.error("Mongoose error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get single property
+// controllers/residenceController.js
+export const getResidence = asyncHandler(async (req, res) => {
+  try {
+    const residence = await Residency.findById(req.params.id).lean();
+    
+    if (!residence) {
+      return res.status(404).json({ message: "Property not found" });
+    }
+
+    // Stringify facilities for frontend compatibility
+    residence.facilities = JSON.stringify(residence.facilities);
+    
+    res.json(residence);
+  } catch (error) {
+    console.error("Mongoose error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });

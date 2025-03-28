@@ -16,54 +16,76 @@ import UserListings from "./pages/AllUserProperties/UserListings";
 import AllBookings from "./pages/AllBookings/AllBookings";
 import AllUsers from "./pages/users/AllUsers";
 import MySettings from "./pages/MySettings";
+import Login from "./hooks/clerkLogin/Login";
+import Register from "./hooks/clerkSignUp/Register";
+import { ClerkProvider } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/clerk-react";
 
-const queryClient = new QueryClient(); // Moved outside to prevent re-creation on each render
+const queryClient = new QueryClient();
 
-function App() {
-  const [userDetails, setUserDetails] = useState(() => {
-    try {
-      const storedDetails = localStorage.getItem("userDetails");
-      return storedDetails
-        ? JSON.parse(storedDetails)
-        : { favourites: [], bookings: [], token: null };
-    } catch (error) {
-      console.error("Error parsing userDetails from localStorage:", error);
-      return { favourites: [], bookings: [], token: null };
-    }
+const UserDetailsProvider = ({ children }) => {
+  const { getToken } = useAuth();
+  const [userDetails, setUserDetails] = useState({
+    favourites: [],
+    bookings: [],
+    token: null,
+    loading: true,
   });
 
   useEffect(() => {
-    // Only update localStorage if userDetails actually changed
-    const storedDetails = localStorage.getItem("userDetails");
-    if (JSON.stringify(userDetails) !== storedDetails) {
-      localStorage.setItem("userDetails", JSON.stringify(userDetails));
-    }
-  }, [userDetails]);
+    const fetchToken = async () => {
+      try {
+        const token = await getToken();
+        setUserDetails(prev => ({ 
+          ...prev, 
+          token,
+          loading: false 
+        }));
+      } catch (error) {
+        console.error("Token fetch error:", error);
+        setUserDetails(prev => ({ ...prev, loading: false }));
+      }
+    };
+    
+    fetchToken();
+  }, [getToken]);
 
   return (
     <UserDetailsContext.Provider value={{ userDetails, setUserDetails }}>
-      <QueryClientProvider client={queryClient}>
-        <Router>
-          <Suspense fallback={<div>Loading ...</div>}>
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Entry />} />
-                <Route path="/listings" element={<Listings />} />
-                <Route path="/listing/:id" element={<Listing />} />
-                <Route path="/userBookings" element={<Bookings />} />
-                <Route path="/favourites" element={<Favourites />} />
-                <Route path="/mylistings" element={<UserListings />} />
-                <Route path="/allbookings" element={<AllBookings />} />
-                <Route path="/allusers" element={<AllUsers/>}/>
-                <Route path="/mysettings" element={<MySettings/>}/>
-              </Route>
-            </Routes>
-          </Suspense>
-        </Router>
-        <ToastContainer />
-        <ReactQueryDevtools initialIsOpen={false} />
-      </QueryClientProvider>
+      {children}
     </UserDetailsContext.Provider>
+  );
+};
+
+function App() {
+  return (
+    <ClerkProvider publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}>
+      <QueryClientProvider client={queryClient}>
+        <UserDetailsProvider>
+          <Router>
+            <Suspense fallback={<div>Loading ...</div>}>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<Entry />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/listings" element={<Listings />} />
+                  <Route path="/listing/:id" element={<Listing />} />
+                  <Route path="/userBookings" element={<Bookings />} />
+                  <Route path="/favourites" element={<Favourites />} />
+                  <Route path="/mylistings" element={<UserListings />} />
+                  <Route path="/allbookings" element={<AllBookings />} />
+                  <Route path="/allusers" element={<AllUsers />} />
+                  <Route path="/mysettings" element={<MySettings />} />
+                </Route>
+              </Routes>
+            </Suspense>
+          </Router>
+          <ToastContainer />
+          <ReactQueryDevtools initialIsOpen={false} />
+        </UserDetailsProvider>
+      </QueryClientProvider>
+    </ClerkProvider>
   );
 }
 

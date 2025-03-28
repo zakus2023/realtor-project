@@ -1,78 +1,68 @@
-import React, { useContext, useEffect } from "react"; // Import React and required hooks
-import "./Layout.css"; // Import the CSS for layout styling
-import Header from "../Components/Header/Header"; // Import Header component
-import Footer from '../Components/footer/Footer'; // Note lowercase 'c'
-import { Outlet } from "react-router-dom"; // React Router component for rendering child routes
-import { useAuth0 } from "@auth0/auth0-react"; // Auth0 authentication hook for user authentication
-import UserDetailsContext from "../context/UserDetailsContext"; // Context to manage user details globally
-import { useMutation } from "react-query"; // React Query hook to handle API requests efficiently
-import { createUser } from "../utils/api"; // API function to create/register a user in the backend
+import React, { useContext, useEffect, useRef } from "react";
+import "./Layout.css";
+import Header from "../Components/Header/Header";
+import Footer from '../Components/footer/Footer';
+import { Outlet } from "react-router-dom";
+import { useUser, useAuth } from "@clerk/clerk-react";
+import UserDetailsContext from "../context/UserDetailsContext";
+import { useMutation } from "react-query";
+import { createUser } from "../utils/api";
 
 function Layout() {
-  // Extract authentication-related functions and state from the Auth0 hook
-  const { isAuthenticated, user, getAccessTokenWithPopup, loginWithPopup } = useAuth0();
-  
-  // Access user details context to update state globally
+  const { isLoaded, isSignedIn, user } = useUser();
+  const { getToken } = useAuth();
   const { setUserDetails } = useContext(UserDetailsContext);
+  const mountedRef = useRef(true);
 
-  // Define a mutation for user creation using React Query
   const { mutate } = useMutation({
-    mutationKey: [user?.email], // Ensures this mutation is uniquely identified by user email
-    mutationFn: (token) => createUser(user?.email, token), // Calls backend API to create user with token
+    mutationKey: [user?.id],
+    mutationFn: async (token) => {
+      if (!mountedRef.current) return;
+      return createUser({
+        email: user?.primaryEmailAddress?.emailAddress,
+        clerkId: user?.id,
+        name: `${user?.firstName} ${user?.lastName}`,
+        image: user?.profileImageUrl
+      }, token);
+    }
   });
 
-  // useEffect runs whenever authentication status changes
   useEffect(() => {
-    console.log("Checking authentication status...");
+    const handleAuth = async () => {
+      if (mountedRef.current && isLoaded && isSignedIn && user) {
+        try {
+          const token = await getToken();
+          
+          setUserDetails(prev => ({
+            ...prev,
+            token,
+            user: {
+              id: user.id,
+              email: user.primaryEmailAddress?.emailAddress,
+              name: `${user.firstName} ${user.lastName}`,
+              image: user.profileImageUrl
+            }
+          }));
 
-    // Function to obtain an access token and register user
-    const getTokenAndRegister = async () => {
-      try {
-        console.log("Fetching access token...");
-        
-        // Ensure getAccessTokenWithPopup is available before calling
-        if (!getAccessTokenWithPopup) {
-          throw new Error("getAccessTokenWithPopup is undefined. Check Auth0 setup.");
+          mutate(token);
+        } catch (error) {
+          console.error("Auth error:", error);
         }
-
-        // Request an access token from Auth0 to authorize API requests
-        const token = await getAccessTokenWithPopup({
-          authorizationParams: {
-            audience: "http://localhost:5000", // API audience URL for authentication
-            scope: "openid profile email", // Scopes define what user data can be accessed
-          },
-        });
-
-        // Store the access token in local storage for future API requests
-        localStorage.setItem("access_token", token);
-
-        // Update global user context with the token, allowing other components to use it
-        setUserDetails((prev) => ({ ...prev, token }));
-
-        // Call mutation function to register user in backend
-        // The token is passed to authenticate the API request
-        mutate(token);
-      } catch (error) {
-        console.error("Error fetching access token:", error); // Log errors
       }
     };
 
-    // If the user is authenticated, retrieve token and register user
-    if (isAuthenticated) {
-      getTokenAndRegister();
-    } else {
-      console.warn("User is not authenticated. Token request skipped."); // Log if user is not authenticated
-    }
-  }, [isAuthenticated, getAccessTokenWithPopup, setUserDetails]); // Dependencies for the effect hook
+    handleAuth();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [isLoaded, isSignedIn, user, getToken, setUserDetails]);
 
   return (
-    <>
-      <div style={{ background: "var(--black)", overflow: "hidden" }}>
-        <Header /> {/* Render the Header component */}    
-        <Outlet /> {/* Render nested routes dynamically */}
-        <Footer /> {/* Render the Footer component */}
-      </div>
-    </>
+    <div style={{ background: "var(--black)", overflow: "hidden" }}>
+      <Header />
+      <Outlet />
+      <Footer />
+    </div>
   );
 }
 

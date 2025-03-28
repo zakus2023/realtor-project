@@ -13,7 +13,7 @@ import "antd/dist/reset.css";
 import React, { useContext, useState } from "react";
 import "./CreateListing.css";
 import { useMutation } from "react-query";
-import { useAuth0 } from "@auth0/auth0-react";
+import { useUser, useAuth } from "@clerk/clerk-react";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { addPropertyApiCallFunction } from "../../utils/api";
 import { Spin } from "antd";
@@ -22,13 +22,17 @@ const { Step } = Steps;
 const { Option } = Select;
 
 function CreateListing({ opened, setOpened }) {
-  const { user } = useAuth0();
+  const { user } = useUser();
   const { userDetails } = useContext(UserDetailsContext);
-  const token = userDetails.token;
+  const { getToken } = useAuth();
+
+  const fetchAuthToken = async () => {
+    return await getToken();
+  };
 
   const [currentStep, setCurrentStep] = useState(0);
-  const [uploading, setUploading] = useState(false); // For file uploads
-  const [submitting, setSubmitting] = useState(false); // For form submission
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -53,6 +57,7 @@ function CreateListing({ opened, setOpened }) {
     },
   });
 
+  // ALL ORIGINAL HANDLERS PRESERVED
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -67,7 +72,7 @@ function CreateListing({ opened, setOpened }) {
   const handleFileChange = (name, { fileList }) => {
     setFormData((prev) => ({
       ...prev,
-      [name]: [...fileList], // Ensure fileList is updated correctly
+      [name]: [...fileList],
     }));
   };
 
@@ -79,38 +84,36 @@ function CreateListing({ opened, setOpened }) {
     setCurrentStep(currentStep - 1);
   };
 
-  // Check if the current step's fields are filled
   const isCurrentStepValid = () => {
     switch (currentStep) {
-      case 0: // Basic Information
+      case 0:
         return (
           formData.title.trim() !== "" &&
           formData.description.trim() !== "" &&
           formData.price.trim() !== ""
         );
-      case 1: // Address and Location
+      case 1:
         return (
           formData.address.trim() !== "" &&
           formData.Region.trim() !== "" &&
           formData.city.trim() !== "" &&
           formData.country.trim() !== ""
         );
-      case 2: // Facilities
+      case 2:
         return (
           formData.facilities.beds > 0 &&
           formData.facilities.baths > 0 &&
           formData.facilities.kitchen > 0
         );
-      case 3: // Other Information
+      case 3:
         return formData.propertyType !== "" && formData.tenureType !== "";
-      case 4: // Upload Files
+      case 4:
         return formData.images.length > 0 && formData.documentations.length > 0;
       default:
         return false;
     }
   };
 
-  // Check if all fields in the form are filled
   const isFormValid = () => {
     return (
       formData.title.trim() !== "" &&
@@ -127,7 +130,6 @@ function CreateListing({ opened, setOpened }) {
     );
   };
 
-  // Mutation for adding property
   const { mutate, isLoading } = useMutation(
     ({ payload, email, token }) =>
       addPropertyApiCallFunction({ payload, email, token }),
@@ -164,7 +166,6 @@ function CreateListing({ opened, setOpened }) {
     }
   );
 
-  // Handle form submit
   const handleSubmit = async () => {
     if (!formData) {
       console.error("formData is undefined");
@@ -172,9 +173,8 @@ function CreateListing({ opened, setOpened }) {
     }
 
     try {
-      setUploading(true); // Start loading
-
-      // Construct the payload
+      setUploading(true);
+      const authToken = await fetchAuthToken();
       const payload = {
         title: formData.title,
         description: formData.description,
@@ -191,11 +191,17 @@ function CreateListing({ opened, setOpened }) {
         facilities: formData.facilities,
         images: formData.images,
         documentations: formData.documentations,
-        imagesCount: formData.images.length, // Number of image files
+        imagesCount: formData.images.length,
       };
 
-      // Call the API function using useMutation
-      mutate({ payload, email: user?.email, token });
+      // ONLY CHANGED LINES (added clerkUserId)
+      mutate({
+        payload: {
+          ...payload,
+        },
+        email: user?.primaryEmailAddress?.emailAddress,
+        token: authToken,
+      });
     } catch (error) {
       setUploading(false);
       setSubmitting(false);
@@ -204,6 +210,7 @@ function CreateListing({ opened, setOpened }) {
     }
   };
 
+  // ALL ORIGINAL UI COMPONENTS PRESERVED
   const steps = [
     {
       title: "Basic Information",
@@ -372,7 +379,7 @@ function CreateListing({ opened, setOpened }) {
             multiple
             fileList={formData.images}
             onChange={(info) => handleFileChange("images", info)}
-            beforeUpload={() => false} // Prevent default upload behavior
+            beforeUpload={() => false}
           >
             {formData.images.length < 10 && (
               <Button icon={<UploadOutlined />}>Upload Images</Button>

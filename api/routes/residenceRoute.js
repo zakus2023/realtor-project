@@ -6,20 +6,32 @@ import {
   getAllUserProperties,
   getResidence,
 } from "../controllers/residenceController.js";
-import jwtCheck from "../config/auth0Config.js";
-import multer from "multer"; // Import multer
+import multer from "multer";
+import { attachUser, requireAuth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
-// Configure multer for file uploads
-const storage = multer.memoryStorage(); // Store files in memory as buffers
-const upload = multer({ storage }); // Initialize multer with the storage configuration
+// Updated routes with proper middleware order
+router.post(
+  "/addProperty",
+  requireAuth,    // Verify token first
+  upload.any(),   // Then handle file uploads
+  attachUser,     // Then attach user from verified token
+  addProperty
+);
 
-// Routes
-router.post("/addProperty", upload.any(), jwtCheck, addProperty); // Add property with file uploads and JWT authentication
-router.put("/editProperty/:id", upload.any(), jwtCheck, editProperty);
-router.get("/fetchResidencies", getAllProperties); // Fetch all properties
-router.get("/fetchResidence/:id", getResidence); // Fetch a single property by ID
-router.get("/getAllUserProperties", jwtCheck, getAllUserProperties); // Fetch all proerties that belongs to the current user
+router.put(
+  "/editProperty/:id",
+  requireAuth,
+  upload.any(),
+  attachUser,
+  editProperty
+);
+
+router.get("/fetchResidencies", getAllProperties);
+router.get("/fetchResidence/:id", getResidence);
+router.get("/getAllUserProperties", requireAuth, attachUser, getAllUserProperties);
 
 export default router;

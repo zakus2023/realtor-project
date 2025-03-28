@@ -1,10 +1,11 @@
-import { useAuth0 } from "@auth0/auth0-react";
+// useAuthCheck.js
+import { useAuth } from "@clerk/clerk-react";
 import { toast } from "react-toastify";
 
 function useAuthCheck() {
-  const { isAuthenticated } = useAuth0();
+  const { userId } = useAuth();
   const validateLogin = () => {
-    if (!isAuthenticated) {
+    if (!userId) {
       toast.error("You must be logged in", { position: "bottom-right" });
       return false;
     } else return true;

@@ -42,28 +42,28 @@ function ProfileMenu({ user, logout }) {
           </Menu.Item>
         </>
       )}
-      <Menu.Item key="mysettings" onClick={() => navigate("/mysettings")}>
-        Settings
-      </Menu.Item>
-      <Menu.Item
-        key="logout"
-        onClick={() => {
-          localStorage.clear();
-          logout();
-        }}
-      >
-        Logout
-      </Menu.Item>
     </Menu>
   );
 
   return (
     <Dropdown overlay={menu} trigger={["click"]}>
-      <Avatar
+      {/* <Avatar
         src={user?.picture}
         icon={<UserOutlined />} // Fallback icon if no image is provided
         style={{ cursor: "pointer" }}
-      />
+      /> */}
+      <button
+        style={{
+          cursor: "pointer",
+          backgroundColor: "orange",
+          padding: "8px 10px",
+          borderRadius: "5px",
+          border: "none",
+          fontWeight: "600",
+        }}
+      >
+        My Portal
+      </button>
     </Dropdown>
   );
 }

@@ -1,3 +1,4 @@
+import { useUser } from "@clerk/clerk-react";
 import axios from "axios"; // Import Axios for making HTTP requests
 import dayjs from "dayjs"; // Import Day.js for date/time manipulation (not used here but can be useful)
 import { toast } from "react-toastify"; // Import toast notifications for error handling and user feedback
@@ -8,18 +9,21 @@ export const api = axios.create({
 });
 
 // fetch user details
+// Update your fetchUserDetails to handle token properly
 export const fetchUserDetails = async (email, token) => {
   try {
+    if (!token) throw new Error("No authentication token");
+    
     const response = await api.get(`/api/user/userDetails/${email}`, {
       headers: {
-        Authorization: `Bearer ${token}`, // Correct headers format
+        Authorization: `Bearer ${token}`,
       },
     });
-
-    return response.data; // Axios automatically throws on errors
+    
+    return response.data;
   } catch (error) {
-    toast.error("Something went wrong!"); // Show error notification to the user
-    throw error; // Rethrow the error for handling elsewhere
+    console.error("Fetch error:", error);
+    throw new Error(error.message || "Failed to fetch user details");
   }
 };
 
@@ -64,26 +68,28 @@ export const getListing = async (id) => {
 };
 
 // Function to create/register a user in the backend
-export const createUser = async (email, token) => {
+export const createUser = async (userData, token) => {
   try {
-    // Make a POST request to register a user with their email
-    api.post(
+    const response = await api.post(
       "/api/user/register",
       {
-        email, // Send email in the request body
+        email: userData.email,
+        clerkId: userData.clerkId,
+        name: userData.name,
+        image: userData.image
       },
       {
         headers: {
-          Authorization: `Bearer ${token}`, // Include the token for authentication
+          Authorization: `Bearer ${token}`,
         },
       }
     );
+    return response.data;
   } catch (error) {
-    toast.error("Something went wrong"); // Show an error notification
-    throw error; // Rethrow the error for further handling
+    toast.error("Something went wrong");
+    throw error;
   }
 };
-
 // book a visit
 
 export const bookVisit = async ({
@@ -175,34 +181,32 @@ export const addToFavourites = async (resId, email, token) => {
 
 // add property
 export const addPropertyApiCallFunction = async ({ payload, email, token }) => {
+  console.log(payload)
   try {
-    // Create a FormData object
     const formData = new FormData();
 
-    // Append form fields to FormData
+    // Add Clerk user ID to existing payload handling
     for (const key in payload) {
       if (key === "facilities") {
-        // Convert facilities object to a JSON string
         formData.append(key, JSON.stringify(payload[key]));
       } else if (key === "images" || key === "documentations") {
-        // Append files
         payload[key].forEach((file) => {
-          formData.append(key, file.originFileObj); // Append the file object
+          formData.append(key, file.originFileObj);
         });
       } else {
-        // Append other fields
-        formData.append(key, payload[key]);
+        // This now automatically includes clerkUserId from payload
+        formData.append(key, payload[key]); 
       }
     }
 
-    // Append email to the FormData
+    // Maintain original email parameter
     formData.append("email", email);
 
-    // Send the request with FormData
+    // Keep existing API call structure
     const response = await api.post("/api/residence/addProperty", formData, {
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "multipart/form-data", // Use multipart/form-data for file uploads
+        "Content-Type": "multipart/form-data",
       },
     });
 

@@ -4,30 +4,29 @@ import logo from "/logowhite.png";
 import { BiMenuAltRight } from "react-icons/bi";
 import OutsideClickHandler from "react-outside-click-handler";
 import { Link, NavLink } from "react-router-dom";
-import { useAuth0 } from "@auth0/auth0-react";
+import { useUser, useClerk } from "@clerk/clerk-react"; // Clerk instead of Auth0
 import ProfileMenu from "../ProfileMenu/ProfileMenu";
 import CreateListing from "../CreateListing/CreateListing";
 import useAuthCheck from "../../hooks/useAuthCheck";
 import { toast } from "react-toastify";
 import ContactModal from "../ContactModal/ContactModal";
-
+import { SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
 
 function Header() {
-
   const [menuOpened, setMenuOpened] = useState(false);
   const [modalOpened, setModalOpened] = useState(false);
-  const [contactModalOpened, setContactModalOpened] = useState(false); // State for contact modal
+  const [contactModalOpened, setContactModalOpened] = useState(false);
   const { validateLogin } = useAuthCheck();
-  const { loginWithRedirect, isAuthenticated, user, logout } = useAuth0();
+  const { user } = useUser(); // Clerk user
+  const { signOut, openSignIn } = useClerk(); // Clerk methods
 
-  // Function to handle menu styles for mobile view
+  // Keep everything else exactly the same below
   const getMenuStyles = (menuOpened) => {
     if (document.documentElement.clientWidth <= 800) {
       return { right: !menuOpened && "-100%" };
     }
   };
 
-  // Function to handle create listing
   const handleCreateListing = () => {
     if (!validateLogin()) {
       toast.error("You must log in to create a listing.");
@@ -40,15 +39,12 @@ function Header() {
   return (
     <section className="h-wrapper">
       <div className="h-container flexCenter innerWidth paddings">
-        {/* Logo */}
         <Link to="/">
           <img src={logo} alt="logo" width={80} height={60} />
         </Link>
 
-        {/* Menu */}
         <OutsideClickHandler onOutsideClick={() => setMenuOpened(false)}>
           <div className="flexCenter h-menu" style={getMenuStyles(menuOpened)}>
-            {/* Listings Link */}
             <NavLink
               to="/listings"
               onClick={() => setMenuOpened(false)}
@@ -57,12 +53,11 @@ function Header() {
               Listings
             </NavLink>
 
-            {/* Contact Link */}
             <a
               href="#"
               onClick={(e) => {
                 e.preventDefault();
-                setContactModalOpened(true); // Open the contact modal
+                setContactModalOpened(true);
                 setMenuOpened(false);
               }}
               style={{ fontWeight: "600" }}
@@ -70,7 +65,6 @@ function Header() {
               Contact
             </a>
 
-            {/* Create Listing Button */}
             <div
               className="create-listing-btn"
               onClick={handleCreateListing}
@@ -86,18 +80,28 @@ function Header() {
             </div>
             <CreateListing opened={modalOpened} setOpened={setModalOpened} />
 
-            {/* Login/Profile Menu */}
-            {!isAuthenticated ? (
-              <button className="button" onClick={loginWithRedirect}>
+            <SignedOut>
+              <button
+                onClick={() => openSignIn()} // Changed to Clerk's sign-in
+                style={{
+                  backgroundColor: "blue",
+                  padding: "8px 10px",
+                  borderRadius: "5px",
+                  border: "none",
+                  fontWeight: "600",
+                  cursor:"pointer"
+                }}
+              >
                 Login
               </button>
-            ) : (
-              <ProfileMenu user={user} logout={logout} />
-            )}
+            </SignedOut>
+            <SignedIn>
+              <ProfileMenu user={user} logout={signOut} /> {/* Clerk logout */}
+              <UserButton />
+            </SignedIn>
           </div>
         </OutsideClickHandler>
 
-        {/* Mobile Menu Icon */}
         <div
           className="menu-icon"
           onClick={() => setMenuOpened((prev) => !prev)}
@@ -106,7 +110,6 @@ function Header() {
         </div>
       </div>
 
-      {/* Contact Modal */}
       <ContactModal
         isOpen={contactModalOpened}
         onClose={() => setContactModalOpened(false)}

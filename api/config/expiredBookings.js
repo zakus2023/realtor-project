@@ -1,60 +1,49 @@
 import dayjs from "dayjs";
-import { prisma } from "../config/prismaConfig.js";
+import User from "../models/user.js";
 import utc from "dayjs/plugin/utc.js";
 import customParseFormat from "dayjs/plugin/customParseFormat.js";
 
-// Extend dayjs with UTC and custom parse format plugins
 dayjs.extend(utc);
 dayjs.extend(customParseFormat);
 
 const checkAndRemoveExpiredBookings = async (email) => {
   try {
-    // Find the user and their bookings
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: { bookedVisit: true },
-    });
+    const user = await User.findOne({ email })
+      .select("bookedVisit")
+      .lean();
 
     if (!user) {
       throw new Error("User not found");
     }
 
-    // Get the current date and time in UTC
     const now = new Date();
-    const currentDate = dayjs.utc(now).format("YYYY-MM-DD");
-    const currentTime = dayjs.utc(now).format("HH:mm");
+    const currentUTC = dayjs.utc(now);
 
-    // Filter out expired or completed bookings
-    const updatedBookings = user.bookedVisit.filter((visit) => {
-      // Parse the booking date and time using the correct format (DD/MM/YYYY)
-      const bookingDateTime = dayjs.utc(`${visit.date} ${visit.time}`, "DD/MM/YYYY HH:mm");
-      const currentDateTime = dayjs.utc(`${currentDate} ${currentTime}`, "YYYY-MM-DD HH:mm");
+    // Add fallback for bookedVisit array
+    const activeBookings = (user.bookedVisit || []).filter(booking => {
+      const bookingDate = dayjs.utc(
+        `${booking.date} ${booking.time}`,
+        "DD/MM/YYYY HH:mm"
+      );
 
-      //console.log("Booking Date Time (UTC):", bookingDateTime.format(), "Current Date Time (UTC):", currentDateTime.format());
+      const isExpired = bookingDate.isBefore(currentUTC);
+      const isCompleted = booking.visitStatus === "completed";
 
-      const isExpired = bookingDateTime.isBefore(currentDateTime);
-      const isCompleted = visit.visitStatus === "completed";
-
-
-      // Keep the booking if it is not expired and not completed
       return !isExpired && !isCompleted;
     });
 
-    // Update the user's bookings if there are any changes
-    if (updatedBookings.length !== user.bookedVisit.length) {
-      await prisma.user.update({
-        where: { email },
-        data: {
-          bookedVisit: updatedBookings,
-        },
-      });
+    if (activeBookings.length !== (user.bookedVisit || []).length) {
+      await User.updateOne(
+        { email },
+        { $set: { bookedVisit: activeBookings } }
+      );
     }
 
-    return updatedBookings;
+    return activeBookings;
   } catch (error) {
-    console.error("Error checking expired bookings:", error);
+    console.error("Booking cleanup error:", error);
     throw error;
   }
 };
 
-export default checkAndRemoveExpiredBookings
+export default checkAndRemoveExpiredBookings;

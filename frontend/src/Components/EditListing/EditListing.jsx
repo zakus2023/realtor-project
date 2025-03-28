@@ -13,9 +13,9 @@ import "antd/dist/reset.css";
 import React, { useContext, useEffect, useState } from "react";
 import "./EditListing.css";
 import { useMutation } from "react-query";
-import { useAuth0 } from "@auth0/auth0-react";
+import { useUser, useAuth } from "@clerk/clerk-react"; // Clerk imports
 import UserDetailsContext from "../../context/UserDetailsContext";
-import { editPropertyApiCallFunction } from "../../utils/api"; // Updated import
+import { editPropertyApiCallFunction } from "../../utils/api";
 import { Spin } from "antd";
 
 const { Step } = Steps;
@@ -27,14 +27,22 @@ function EditListing({
   propertyToEdit,
   currentUserDetails,
 }) {
-  const { user } = useAuth0();
+  const { user } = useUser();
+  const { getToken } = useAuth();
   const { userDetails } = useContext(UserDetailsContext);
-  const token = userDetails.token;
+  const [token, setToken] = useState(null);
 
   const [currentStep, setCurrentStep] = useState(0);
-  const [uploading, setUploading] = useState(false); // For file uploads
-  const [submitting, setSubmitting] = useState(false); // For form submission
-  console.log(currentUserDetails);
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fetchToken = async () => {
+      const clerkToken = await getToken();
+      setToken(clerkToken);
+    };
+    fetchToken();
+  }, [getToken]);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -58,12 +66,9 @@ function EditListing({
       parking: 0,
     },
   });
-  console.log("Form Data: ", formData);
 
-  // Initialize formData with propertyToEdit data
   useEffect(() => {
     if (propertyToEdit) {
-      // Parse facilities if it's a string
       const facilities =
         typeof propertyToEdit.facilities === "string"
           ? JSON.parse(propertyToEdit.facilities)
@@ -73,24 +78,23 @@ function EditListing({
               kitchen: 1,
               parking: 0,
             };
-  
-      // Transform images and documentations into the format expected by Upload
+
       const images =
         propertyToEdit.images?.map((image, index) => ({
           uid: `image-${index}`,
-          name: `image-${index}.jpg`, // Use the actual file name if available
+          name: `image-${index}.jpg`,
           status: "done",
-          url: image, // Use the image URL
+          url: image,
         })) || [];
-  
+
       const documentations =
         propertyToEdit.documentations?.map((doc, index) => ({
           uid: `doc-${index}`,
-          name: `document-${index}.pdf`, // Use the actual file name if available
+          name: `document-${index}.pdf`,
           status: "done",
-          url: doc, // Use the document URL
+          url: doc,
         })) || [];
-  
+
       setFormData({
         title: propertyToEdit.title,
         description: propertyToEdit.description,
@@ -100,12 +104,12 @@ function EditListing({
         Region: propertyToEdit.Region,
         country: propertyToEdit.country,
         gpsCode: propertyToEdit.gpsCode,
-        propertyStatus: propertyToEdit.propertyStatus ?? "Listed", // Default to "Listed"
-        status: propertyToEdit.status ?? "review", // Default to "review"
+        propertyStatus: propertyToEdit.propertyStatus ?? "Listed",
+        status: propertyToEdit.status ?? "review",
         propertyType: propertyToEdit.propertyType,
         tenureType: propertyToEdit.tenureType,
-        images, // Use the transformed images array
-        documentations, // Use the transformed documentations array
+        images,
+        documentations,
         facilities,
       });
     }
@@ -125,7 +129,7 @@ function EditListing({
   const handleFileChange = (name, { fileList }) => {
     setFormData((prev) => ({
       ...prev,
-      [name]: fileList, // Ensure fileList is updated correctly
+      [name]: fileList,
     }));
   };
 
@@ -137,40 +141,38 @@ function EditListing({
     setCurrentStep(currentStep - 1);
   };
 
-  // Check if the current step's fields are filled
   const isCurrentStepValid = () => {
     switch (currentStep) {
-      case 0: // Basic Information
+      case 0:
         return (
           formData.title.trim() !== "" &&
           formData.description.trim() !== "" &&
           formData.price.trim() !== ""
         );
-      case 1: // Address and Location
+      case 1:
         return (
           formData.address.trim() !== "" &&
           formData.Region.trim() !== "" &&
           formData.city.trim() !== "" &&
           formData.country.trim() !== ""
         );
-      case 2: // Facilities
+      case 2:
         return (
           formData.facilities.beds > 0 &&
           formData.facilities.baths > 0 &&
           formData.facilities.kitchen > 0
         );
-      case 3: // Other Information
+      case 3:
         return formData.propertyType !== "" && formData.tenureType !== "";
-      case 4: // Other property status
+      case 4:
         return formData.propertyStatus !== "" && formData.status !== "";
-      case 5: // Upload Files
+      case 5:
         return formData.images.length > 0 && formData.documentations.length > 0;
       default:
         return false;
     }
   };
 
-  // Check if all fields in the form are filled
   const isFormValid = () => {
     return (
       formData.title.trim() !== "" &&
@@ -189,7 +191,6 @@ function EditListing({
     );
   };
 
-  // Mutation for editing property
   const { mutate, isLoading } = useMutation(
     ({ id, payload, email, token }) =>
       editPropertyApiCallFunction({ id, payload, email, token }),
@@ -226,7 +227,6 @@ function EditListing({
     }
   );
 
-  // Handle form submit
   const handleSubmit = async () => {
     if (!formData) {
       console.error("formData is undefined");
@@ -234,9 +234,7 @@ function EditListing({
     }
 
     try {
-      setUploading(true); // Start loading
-
-      // Construct the payload
+      setUploading(true);
       const payload = {
         title: formData.title,
         description: formData.description,
@@ -253,14 +251,13 @@ function EditListing({
         facilities: formData.facilities,
         images: formData.images,
         documentations: formData.documentations,
-        imagesCount: formData.images.length, // Number of image files
+        imagesCount: formData.images.length,
       };
 
-      // Call the API function using useMutation
       mutate({
-        id: propertyToEdit.id, // Pass the property ID
+        id: propertyToEdit.id,
         payload,
-        email: user?.email,
+        email: user?.primaryEmailAddress?.emailAddress,
         token,
       });
     } catch (error) {
@@ -445,7 +442,7 @@ function EditListing({
               setFormData({ ...formData, status: value })
             }
             style={{ marginBottom: "1rem", width: "100%" }}
-            disabled={currentUserDetails?.role !== "admin"} // Correct condition
+            disabled={currentUserDetails?.role !== "admin"}
           >
             <Option value="published">Published</Option>
             <Option value="review">Review</Option>
@@ -469,7 +466,7 @@ function EditListing({
             multiple
             fileList={formData.images}
             onChange={(info) => handleFileChange("images", info)}
-            beforeUpload={() => false} // Prevent default upload behavior
+            beforeUpload={() => false}
           >
             {formData.images.length < 10 && (
               <Button icon={<UploadOutlined />}>Upload Images</Button>

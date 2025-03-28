@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import "./Listing.css";
 import { useMutation, useQuery } from "react-query";
 import { useParams } from "react-router-dom";
@@ -12,7 +12,7 @@ import "swiper/css";
 import { sliderSettings } from "../../utils/common";
 import Map from "../../Components/map/Map";
 import useAuthCheck from "../../hooks/useAuthCheck";
-import { useAuth0 } from "@auth0/auth0-react";
+import { useAuth, useUser } from "@clerk/clerk-react";
 import BookingModal from "../../Components/BookingModal/BookingModal";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { Button } from "antd";
@@ -22,31 +22,50 @@ import EditListing from "../../Components/EditListing/EditListing";
 import LikeButton from "../../Components/LikeButton/LikeButton.";
 
 function Listing() {
-  const { user } = useAuth0();
+  const { user } = useUser();
+  const { getToken } = useAuth();
+   const [token, setToken] = useState(null);
+   console.log("token from listing: ", token)
+  
   const { id } = useParams();
   const { data, isError, isLoading } = useQuery(["listing", id], () =>
     getListing(id)
   );
 
-  const [selectedImage, setSelectedImage] = useState(data?.images[0]);
+  const [selectedImage, setSelectedImage] = useState(null);
   const [modalOpened, setModalOpened] = useState(false);
   const [editModalOpened, setEditModalOpened] = useState(false);
   const { validateLogin } = useAuthCheck();
 
   const {
-    userDetails: { token, bookings },
+    userDetails: { bookings },
     setUserDetails,
   } = useContext(UserDetailsContext);
 
+   useEffect(() => {
+      const fetchToken = async () => {
+        const clerkToken = await getToken();
+        setToken(clerkToken);
+      };
+      fetchToken();
+    }, [getToken]);
+
+  // Initialize selectedImage after data is loaded
+  useState(() => {
+    if (data?.images?.[0]) {
+      setSelectedImage(data.images[0]);
+    }
+  }, [data]);
+
   // Fetch user details
   const { data: userDetail } = useQuery(
-    ["fetchUserDetails", user?.email],
-    () => fetchUserDetails(user?.email, token),
+    ["fetchUserDetails", user?.primaryEmailAddress?.emailAddress],
+    () => fetchUserDetails(user?.primaryEmailAddress?.emailAddress, token),
     {
-      enabled: !!user?.email && !!token,
+      enabled: !!user?.primaryEmailAddress?.emailAddress && !!token,
     }
   );
-
+  console.log("User detail: ", userDetail);
 
   // Cancel booking mutation
   const { mutate: removeBooking, isLoading: cancelling } = useMutation({
@@ -59,16 +78,9 @@ function Listing() {
             : booking
         );
 
-
-        // Update local storage with the updated bookings
         localStorage.setItem("bookings", JSON.stringify(updatedBookings));
-
-        return {
-          ...prev,
-          bookings: updatedBookings,
-        };
+        return { ...prev, bookings: updatedBookings };
       });
-
       toast.success("Booking cancelled successfully", {
         position: "bottom-right",
       });
@@ -107,17 +119,12 @@ function Listing() {
   return (
     <div className="wrapper">
       <div className="flexColStart paddings innerWidth listing-container">
-        {/* Like button */}
         <LikeButton id={id} />
 
-        {/* Main image */}
-        <img
-          src={selectedImage || data?.images[0]}
-          alt="main"
-          className="main-image"
-        />
+        {selectedImage && (
+          <img src={selectedImage} alt="main" className="main-image" />
+        )}
 
-        {/* Swiper slider */}
         <Swiper {...sliderSettings} spaceBetween={0}>
           <SliderButtons />
           {data?.images?.map((photo, index) => (
@@ -132,11 +139,8 @@ function Listing() {
           ))}
         </Swiper>
 
-        {/* Listing details */}
         <div className="flexCenter listing-details">
-          {/* Left */}
           <div className="flexColStart left">
-            {/* Head */}
             <div className="flexStart head">
               <span className="primaryText">{data?.title}</span>
               <span className="lease-type">{data?.tenureType}</span>
@@ -145,83 +149,62 @@ function Listing() {
                 {data?.tenureType === "rent" && "/Month"}
               </span>
             </div>
-            {/* Facilities */}
+
+            {/* Fixed facilities display */}
             <div className="flexStart facilities">
               <div className="flexStart facility">
                 <FaShower size={20} color="#1F3E72" />
-                <span>{JSON.parse(data?.facilities)?.baths} Bath(s)</span>
+                <span>{data?.facilities?.baths || 0} Bath(s)</span>
               </div>
               <div className="flexStart facility">
                 <FaBed size={20} color="#1F3E72" />
-                <span>{JSON.parse(data?.facilities)?.beds} Beds(s)</span>
+                <span>{data?.facilities?.beds || 0} Beds(s)</span>
               </div>
               <div className="flexStart facility">
                 <FaCookie size={20} color="#1F3E72" />
-                <span>{JSON.parse(data?.facilities)?.kitchen} Kitchen(s)</span>
+                <span>{data?.facilities?.kitchen || 0} Kitchen(s)</span>
               </div>
               <div className="flexStart facility">
                 <FaCar size={20} color="#1F3E72" />
-                <span>{JSON.parse(data?.facilities)?.parking} Parking(s)</span>
+                <span>{data?.facilities?.parking || 0} Parking(s)</span>
               </div>
             </div>
+
             <div className="secondaryText" style={{ textAlign: "justify" }}>
               {data?.description}
             </div>
+
             <div className="flexStart">
               <MdAddLocation size={25} color="#1F3E72" />
               <span className="secondaryText">
                 {data?.address} {data?.city} {data?.country}
               </span>
             </div>
+
             <div className="flexStart">
               <MdMap size={25} color="#1F3E72" />
               <span className="secondaryText">
                 Ghana Post GPS Code: <b>{data?.gpsCode}</b>
               </span>
             </div>
-            {user?.email === data?.userEmail || userDetail?.role === "admin" ? (
-              <div
-                className="flexStart"
-                style={{ display: "flex", gap: "5px" }}
-              >
+
+            {(user?.email === data?.userEmail ||
+              userDetail?.role === "admin") && (
+              <div style={{ display: "flex", gap: "5px" }}>
                 <span>
                   Online Status:{" "}
-                  <button
-                    style={{
-                      padding: "5px 8px",
-                      border: "none",
-                      borderRadius: "5px",
-                      backgroundColor: "green",
-                      color: "white",
-                      fontSize: "18px",
-                      fontWeight: "600",
-                    }}
-                  >
-                    {data?.status}
-                  </button>
+                  <button className="status-button">{data?.status}</button>
                 </span>
                 <span>
                   Availability:{" "}
-                  <button
-                    style={{
-                      padding: "5px 8px",
-                      border: "none",
-                      borderRadius: "5px",
-                      backgroundColor: "green",
-                      color: "white",
-                      fontSize: "18px",
-                      fontWeight: "600",
-                    }}
-                  >
+                  <button className="status-button">
                     {data?.propertyStatus}
                   </button>
                 </span>
               </div>
-            ) : null}
+            )}
 
-            {bookedVisit &&
-            (bookedVisit.bookingStatus === "active" ||
-              bookedVisit.visitStatus === "pending") ? (
+            {bookedVisit ? (
               <>
                 <Button
                   type="default"
@@ -230,16 +213,9 @@ function Listing() {
                   onClick={() => removeBooking()}
                   disabled={cancelling}
                 >
-                  {cancelling ? "Cancelling Booking..." : "Cancel Booking"}
+                  {cancelling ? "Cancelling..." : "Cancel Booking"}
                 </Button>
-                <div
-                  className="booking-details"
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "10px",
-                  }}
-                >
+                <div className="booking-details">
                   <p>
                     <strong>Date:</strong> {bookedVisit.date}
                   </p>
@@ -257,17 +233,10 @@ function Listing() {
                 <button
                   type="button"
                   className="button"
-                  onClick={() => {
-                    if (!validateLogin()) {
-                      toast.error("You must log in to edit a listing.");
-                    } else {
-                      setEditModalOpened(true);
-                    }
-                  }}
+                  onClick={() => validateLogin() && setEditModalOpened(true)}
                 >
-                  <FaEdit style={{ width: "50px" }} />
+                  <FaEdit />
                 </button>
-
                 <EditListing
                   opened={editModalOpened}
                   setOpened={setEditModalOpened}
@@ -284,30 +253,21 @@ function Listing() {
               </button>
             )}
 
-            {user?.email === data?.userEmail || userDetail?.role === "admin" ? (
+            {(user?.email === data?.userEmail ||
+              userDetail?.role === "admin") && (
               <div className="documentations-section">
-                <h3>
-                  Documentations:{" "}
-                  <span style={{ fontWeight: "300" }}>Click to download</span>
-                </h3>
+                <h3>Documentations:</h3>
                 <ol>
-                  {data?.documentations?.map((document, index) => {
-                    const fileName = document.split("/").pop();
-                    return (
-                      <li key={index}>
-                        <a
-                          href={document}
-                          download={fileName}
-                          style={{ textDecoration: "none", color: "blue" }}
-                        >
-                          {fileName}
-                        </a>
-                      </li>
-                    );
-                  })}
+                  {data?.documentations?.map((document, index) => (
+                    <li key={index}>
+                      <a href={document} download className="doc-link">
+                        {document.split("/").pop()}
+                      </a>
+                    </li>
+                  ))}
                 </ol>
               </div>
-            ) : null}
+            )}
 
             <BookingModal
               opened={modalOpened}
@@ -316,7 +276,7 @@ function Listing() {
               email={user?.email}
             />
           </div>
-          {/* Right */}
+
           <div className="map">
             <Map
               address={data?.address}
@@ -330,9 +290,40 @@ function Listing() {
   );
 }
 
-export default Listing;
+// Add Error Boundary
+class ErrorBoundary extends React.Component {
+  state = { hasError: false };
 
-// Slider Buttons
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Error Boundary:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="wrapper">
+          <div className="flexCenter paddings">
+            <h2>Something went wrong with this listing</h2>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function ListingWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <Listing />
+    </ErrorBoundary>
+  );
+}
+
 const SliderButtons = () => {
   const swiper = useSwiper();
   return (

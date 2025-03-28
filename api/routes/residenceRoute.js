@@ -7,7 +7,7 @@ import {
   getResidence,
 } from "../controllers/residenceController.js";
 import multer from "multer";
-import { attachUser, requireAuth } from "../middleware/authMiddleware.js";
+import { attachUser, checkOwnershipOrAdmin, requireAuth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 const storage = multer.memoryStorage();
@@ -27,6 +27,7 @@ router.put(
   requireAuth,
   upload.any(),
   attachUser,
+  checkOwnershipOrAdmin, // Add this middleware
   editProperty
 );
 

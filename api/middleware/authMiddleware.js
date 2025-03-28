@@ -4,6 +4,7 @@ import {
 } from "@clerk/clerk-sdk-node";
 import User from "../models/user.js";
 import dotenv from "dotenv";
+import Residency from "../models/residency.js";
 
 dotenv.config();
 
@@ -40,5 +41,33 @@ export const attachUser = async (req, res, next) => {
   } catch (error) {
     console.error("User attachment error:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const checkOwnershipOrAdmin = async (req, res, next) => {
+  try {
+    const property = await Residency.findById(req.params.id);
+    
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: "Property not found"
+      });
+    }
+
+    if (req.user.role === "admin" || property.userEmail === req.user.email) {
+      return next();
+    }
+
+    res.status(403).json({
+      success: false,
+      message: "Unauthorized: You don't own this property"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Authorization check failed",
+      error: error.message
+    });
   }
 };

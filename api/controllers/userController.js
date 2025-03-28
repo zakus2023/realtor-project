@@ -1275,22 +1275,22 @@ export const updateExpiredBookings = async () => {
     const result = await User.updateMany(
       {
         // Find users with active bookings that have passed
-        'bookings.status': 'active',
-        'bookings.visitDate': { $lt: new Date() }
+        'bookedVisit.bookingStatus': 'active',
+        'bookedVisit.date': { $lt: new Date() }
       },
       {
         // Update matching bookings to 'expired'
         $set: { 
-          'bookings.$[elem].status': 'expired',
-          'bookings.$[elem].metadata.cancelledAt': new Date()
+          'bookedVisit.$[elem].bookingStatus': 'expired',
+          'bookedVisit.$[elem].metadata.cancelledAt': new Date()
         }
       },
       {
         // Array filters for precise targeting
         arrayFilters: [
           { 
-            'elem.status': 'active',
-            'elem.visitDate': { $lt: new Date() }
+            'elem.bookingStatus': 'active',
+            'elem.date': { $lt: new Date() }
           }
         ]
       }

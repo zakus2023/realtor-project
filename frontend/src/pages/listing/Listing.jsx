@@ -41,6 +41,7 @@ function Listing() {
     userDetails: { bookings },
     setUserDetails,
   } = useContext(UserDetailsContext);
+  console.log("Bookings: ", bookings)
 
    useEffect(() => {
       const fetchToken = async () => {
@@ -228,7 +229,7 @@ function Listing() {
                 </div>
               </>
             ) : user?.email === data?.userEmail ||
-              userDetail?.role === "admin" ? (
+              userDetail?.data?.role === "admin" ? (
               <>
                 <button
                   type="button"
@@ -253,8 +254,8 @@ function Listing() {
               </button>
             )}
 
-            {(user?.email === data?.userEmail ||
-              userDetail?.role === "admin") && (
+            {(user?.primaryEmailAddress?.emailAddress === data?.userEmail ||
+              userDetail?.data?.role === "admin") && (
               <div className="documentations-section">
                 <h3>Documentations:</h3>
                 <ol>

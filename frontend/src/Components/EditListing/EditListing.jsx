@@ -442,7 +442,7 @@ function EditListing({
               setFormData({ ...formData, status: value })
             }
             style={{ marginBottom: "1rem", width: "100%" }}
-            disabled={currentUserDetails?.role !== "admin"}
+            disabled={currentUserDetails?.data?.role !== "admin"}
           >
             <Option value="published">Published</Option>
             <Option value="review">Review</Option>

@@ -368,10 +368,8 @@ export const fetchAllUsers = async (email, role, token) => {
 
 // =========================================================
 
-// edit user
-
 // Function to edit user details
-// utils/api.js
+
 export const editUserDetails = async (email, updatedData, token) => {
   try {
     // Pre-process the data before sending

@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema(
         id: {
           type: String,
           required: true,
-          unique: true,
+          // unique: true,  <-- Removed unique index here
         },
         propertyId: {
           type: mongoose.Schema.Types.ObjectId,
@@ -80,30 +80,34 @@ const userSchema = new mongoose.Schema(
         },
       },
     ],
-    favResidenciesID: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Residency'
-    }],
-    ownedResidencies: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Residency'
-    }]
+    favResidenciesID: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Residency",
+      },
+    ],
+    ownedResidencies: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Residency",
+      },
+    ],
   },
-  { 
+  {
     timestamps: true,
     toJSON: { virtuals: true },
-    toObject: { virtuals: true }
+    toObject: { virtuals: true },
   }
 );
 
-userSchema.virtual('profile').get(function() {
+userSchema.virtual("profile").get(function () {
   return {
     id: this._id,
     name: this.name,
     email: this.email,
     role: this.role,
     image: this.image,
-    residencyCount: this.ownedResidencies ? this.ownedResidencies.length : 0
+    residencyCount: this.ownedResidencies ? this.ownedResidencies.length : 0,
   };
 });
 

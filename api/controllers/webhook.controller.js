@@ -59,46 +59,50 @@ export const clerkWebhook = async (req, res) => {
         return res.status(400).json({ error: "Email not found" });
       }
 
-      // Check if user already exists
-      let user = await User.findOne({ $or: [{ clerkId }, { email }] }).session(session);
+      // Check for existing user by clerkId or email (case-insensitive)
+      const existingUser = await User.findOne({
+        $or: [
+          { clerkId },
+          { email: { $regex: `^${email}$`, $options: "i" } },
+        ],
+      })
+        .session(session)
+        .lean();
 
-      if (user) {
-        if (user.clerkId === clerkId) {
-          await session.abortTransaction();
-          return res.status(200).json({ message: "User already exists", user });
-        }
-
-        // If email exists with different clerkId, update clerkId
-        user.clerkId = clerkId;
-        user.image = image_url || user.image;
-        await user.save({ session });
-
-        await session.commitTransaction();
-        return res.status(200).json({ message: "User updated", user });
+      if (existingUser) {
+        await session.abortTransaction();
+        // Return 200 OK if user already exists to prevent duplicate creation.
+        return res.status(200).json({
+          success: true,
+          message: "User already exists. No changes made.",
+          user: existingUser,
+        });
       }
 
-      // Create new user
-      user = new User({
-        clerkId,
-        name,
-        email,
-        image: image_url,
-        role: evt.data.public_metadata?.role || "user",
-      });
+      // Create new user if none exists
+      const newUser = await User.create(
+        [
+          {
+            clerkId,
+            name,
+            email,
+            image: image_url,
+            role: evt.data.public_metadata?.role || "user",
+          },
+        ],
+        { session }
+      );
 
-      await user.save({ session });
       await session.commitTransaction();
-      return res.status(201).json({ success: true, user });
+      return res.status(201).json({ success: true, user: newUser[0] });
     } catch (error) {
       await session.abortTransaction();
 
-      // Handle duplicate key errors
-      if (error.code === 11000) {
-        return res.status(409).json({ error: `User already exists`, key: error.keyValue });
-      }
-
       console.error("Webhook error:", error);
-      return res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({
+        error: "Internal server error",
+        details: error.message,
+      });
     } finally {
       session.endSession();
     }

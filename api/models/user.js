@@ -23,10 +23,11 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
     image: String,
+    address: String,
+    telephone: String,
     bookedVisit: [
       {
         id: {
-          // Changed from bookingId to match controller
           type: String,
           required: true,
           unique: true,
@@ -37,29 +38,24 @@ const userSchema = new mongoose.Schema(
           required: true,
         },
         date: {
-          // Added to match controller's formattedDate
           type: String,
           required: true,
         },
         time: {
-          // Added to match controller's formattedTime
           type: String,
           required: true,
         },
         visitStatus: {
-          // Added for controller's visitStatus
           type: String,
           enum: ["pending", "completed", "cancelled"],
           default: "pending",
         },
         bookingStatus: {
-          // Renamed from status
           type: String,
           enum: ["active", "expired", "cancelled"],
           default: "active",
         },
         payment: {
-          // Added payment subdocument
           method: {
             type: String,
             required: true,
@@ -74,7 +70,6 @@ const userSchema = new mongoose.Schema(
           currency: String,
         },
         metadata: {
-          // Expanded metadata
           bookedAt: {
             type: Date,
             default: Date.now,
@@ -89,9 +84,28 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Residency'
     }],
+    ownedResidencies: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Residency'
+    }]
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
+
+userSchema.virtual('profile').get(function() {
+  return {
+    id: this._id,
+    name: this.name,
+    email: this.email,
+    role: this.role,
+    image: this.image,
+    residencyCount: this.ownedResidencies ? this.ownedResidencies.length : 0
+  };
+});
 
 const User = mongoose.model("User", userSchema);
 export default User;

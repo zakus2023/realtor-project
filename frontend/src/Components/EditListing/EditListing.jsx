@@ -13,10 +13,12 @@ import "antd/dist/reset.css";
 import React, { useContext, useEffect, useState } from "react";
 import "./EditListing.css";
 import { useMutation } from "react-query";
-import { useUser, useAuth } from "@clerk/clerk-react"; // Clerk imports
+import { useUser, useAuth } from "@clerk/clerk-react";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { editPropertyApiCallFunction } from "../../utils/api";
 import { Spin } from "antd";
+import { isTokenExpired } from "../../utils/tokenValidity";
+import { useNavigate } from "react-router-dom";
 
 const { Step } = Steps;
 const { Option } = Select;
@@ -28,21 +30,39 @@ function EditListing({
   currentUserDetails,
 }) {
   const { user } = useUser();
-  const { getToken } = useAuth();
+  const { getToken, signOut } = useAuth();
   const { userDetails } = useContext(UserDetailsContext);
   const [token, setToken] = useState(null);
-
   const [currentStep, setCurrentStep] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchToken = async () => {
-      const clerkToken = await getToken();
-      setToken(clerkToken);
+      try {
+        const clerkToken = await getToken();
+        if (!clerkToken) {
+          console.error("No token available");
+          return;
+        }
+        
+        // Only check expiration but don't redirect here
+        if (isTokenExpired(clerkToken)) {
+          console.warn("Token is expired or about to expire");
+          // Don't redirect or sign out here - let the API call handle it
+        }
+        setToken(clerkToken);
+      } catch (error) {
+        console.error("Error getting token:", error);
+        // Don't redirect here - let the API call handle it
+      }
     };
-    fetchToken();
-  }, [getToken]);
+    
+    if (opened) {
+      fetchToken();
+    }
+  }, [opened, getToken]);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -104,7 +124,7 @@ function EditListing({
         Region: propertyToEdit.Region,
         country: propertyToEdit.country,
         gpsCode: propertyToEdit.gpsCode,
-        propertyStatus: propertyToEdit.propertyStatus ?? "Listed",
+        propertyStatus: propertyToEdit.propertyStatus ?? "listed",
         status: propertyToEdit.status ?? "review",
         propertyType: propertyToEdit.propertyType,
         tenureType: propertyToEdit.tenureType,
@@ -207,8 +227,8 @@ function EditListing({
           Region: "",
           country: "",
           gpsCode: "",
-          propertyStatus:"",
-          status:"",
+          propertyStatus: "listed",
+          status: "review",
           propertyType: "",
           tenureType: "",
           images: [],
@@ -222,7 +242,13 @@ function EditListing({
         });
       },
       onError: (error) => {
-        message.error(`Failed to update property: ${error.message}`);
+        if (error.message === "SESSION_EXPIRED") {
+          message.warning("Your session has expired. Please log in again.");
+          signOut();
+          navigate("/login");
+        } else {
+          message.error(`Failed to update property: ${error.message}`);
+        }
       },
     }
   );
@@ -235,6 +261,16 @@ function EditListing({
 
     try {
       setUploading(true);
+      
+      // Get fresh token right before submission
+      const freshToken = await getToken();
+      if (isTokenExpired(freshToken)) {
+        message.warning("Your session has expired. Please log in again.");
+        await signOut();
+        navigate("/login");
+        return;
+      }
+
       const payload = {
         title: formData.title,
         description: formData.description,
@@ -252,13 +288,14 @@ function EditListing({
         images: formData.images,
         documentations: formData.documentations,
         imagesCount: formData.images.length,
+        clerkUserId: user?.id,
       };
 
       mutate({
-        id: propertyToEdit.id,
+        id: propertyToEdit._id,
         payload,
         email: user?.primaryEmailAddress?.emailAddress,
-        token,
+        token: freshToken,
       });
     } catch (error) {
       setUploading(false);
@@ -438,9 +475,7 @@ function EditListing({
           </Select>
           <Select
             value={formData.status}
-            onChange={(value) =>
-              setFormData({ ...formData, status: value })
-            }
+            onChange={(value) => setFormData({ ...formData, status: value })}
             style={{ marginBottom: "1rem", width: "100%" }}
             disabled={currentUserDetails?.data?.role !== "admin"}
           >
@@ -518,7 +553,8 @@ function EditListing({
             key="submit"
             type="primary"
             onClick={handleSubmit}
-            disabled={!isFormValid()}
+            disabled={!isFormValid() || isLoading}
+            loading={isLoading}
           >
             {propertyToEdit ? "Update Property" : "Add Property"}
           </Button>

@@ -181,28 +181,29 @@ export const addToFavourites = async (resId, email, token) => {
 
 // add property
 export const addPropertyApiCallFunction = async ({ payload, email, token }) => {
-  console.log(payload)
   try {
     const formData = new FormData();
 
-    // Add Clerk user ID to existing payload handling
+    // Add all payload fields including clerkUserId
     for (const key in payload) {
       if (key === "facilities") {
+        // Ensure facilities is properly stringified
         formData.append(key, JSON.stringify(payload[key]));
       } else if (key === "images" || key === "documentations") {
         payload[key].forEach((file) => {
-          formData.append(key, file.originFileObj);
+          if (file.originFileObj) {
+            formData.append(key, file.originFileObj);
+          }
         });
       } else {
-        // This now automatically includes clerkUserId from payload
-        formData.append(key, payload[key]); 
+        formData.append(key, payload[key]);
       }
     }
 
-    // Maintain original email parameter
+    // Add email and imagesCount
     formData.append("email", email);
+    formData.append("imagesCount", payload.imagesCount);
 
-    // Keep existing API call structure
     const response = await api.post("/api/residence/addProperty", formData, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -231,20 +232,22 @@ export const editPropertyApiCallFunction = async ({
   try {
     const formData = new FormData();
 
-    // Preserve existing files
+    // Handle existing files
     const existingImages = payload.images
-      .filter(img => img.url)
-      .map(img => img.url);
+      .filter(img => typeof img === 'string' || img.url)
+      .map(img => typeof img === 'string' ? img : img.url);
     const existingDocs = payload.documentations
-      .filter(doc => doc.url)
-      .map(doc => doc.url);
+      .filter(doc => typeof doc === 'string' || doc.url)
+      .map(doc => typeof doc === 'string' ? doc : doc.url);
 
     formData.append('existingImages', JSON.stringify(existingImages));
     formData.append('existingDocs', JSON.stringify(existingDocs));
+    formData.append('imagesCount', existingImages.length);
 
-    // Original code remains unchanged below
+    // Handle new file uploads and other fields
     for (const key in payload) {
       if (key === "facilities") {
+        // Ensure facilities is properly stringified
         formData.append(key, JSON.stringify(payload[key]));
       } else if (key === "images" || key === "documentations") {
         payload[key].forEach((file) => {
@@ -252,12 +255,13 @@ export const editPropertyApiCallFunction = async ({
             formData.append(key, file.originFileObj);
           }
         });
-      } else {
+      } else if (key !== 'images' && key !== 'documentations') {
         formData.append(key, payload[key]);
       }
     }
 
     formData.append("email", email);
+    formData.append("clerkUserId", payload.clerkUserId);
 
     const response = await api.put(
       `/api/residence/editProperty/${id}`,
@@ -367,28 +371,34 @@ export const fetchAllUsers = async (email, role, token) => {
 // edit user
 
 // Function to edit user details
+// utils/api.js
 export const editUserDetails = async (email, updatedData, token) => {
   try {
+    // Pre-process the data before sending
+    const cleanData = Object.fromEntries(
+      Object.entries(updatedData || {})
+        .map(([key, value]) => [
+          key,
+          typeof value === 'string' && value.trim() === '' ? undefined : value
+        ])
+        .filter(([_, value]) => value !== undefined)
+    );
+
     const response = await api.put(
-      `/api/user/editUserDetails/${email}`, // API endpoint
-      updatedData, // Updated data (name, telephone, role, status)
+      `/api/user/editUserDetails/${encodeURIComponent(email)}`,
+      cleanData,
       {
         headers: {
-          Authorization: `Bearer ${token}`, // Include the token for authentication
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
       }
     );
 
-    // Check if the response has a bad status code and throw an error if so
-    if (response.status === 400 || response.status === 500) {
-      throw response.data;
-    }
-
-    // Return the updated user data if successful
     return response.data;
   } catch (error) {
-    toast.error("Failed to update user details"); // Show error notification
-    throw error; // Rethrow the error for further handling
+    console.error('Error updating user details:', error);
+    throw error;
   }
 };
 

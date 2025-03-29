@@ -19,8 +19,10 @@ import {
   getAdminSubscriptionNotification,
   getSubscriptionEmail,
   getUnsubscriptionEmail,
+  getAdminUnsubscriptionNotification,
 } from "../src/utils/emailTemplates.js";
 import dotenv from "dotenv";
+import stripHtml from "strip-html";
 
 dotenv.config();
 
@@ -593,7 +595,7 @@ export const createUser = asyncHandler(async (req, res) => {
       }
 
       await checkAndRemoveExpiredBookings(email);
-      
+
       return res.status(200).json({
         success: true,
         message: "User already exists",
@@ -602,15 +604,15 @@ export const createUser = asyncHandler(async (req, res) => {
           clerkId: existingUser.clerkId,
           email: existingUser.email,
           name: existingUser.name,
-          image: existingUser.image
-        }
+          image: existingUser.image,
+        },
       });
     }
 
     // 3. Create new user if no existing email found
     const newUser = new User({
       ...req.body,
-      clerkId // Ensure Clerk ID is saved
+      clerkId, // Ensure Clerk ID is saved
     });
 
     const savedUser = await newUser.save();
@@ -624,10 +626,9 @@ export const createUser = asyncHandler(async (req, res) => {
         clerkId: savedUser.clerkId,
         email: savedUser.email,
         name: savedUser.name,
-        image: savedUser.image
-      }
+        image: savedUser.image,
+      },
     });
-
   } catch (error) {
     console.error("User creation error:", error);
 
@@ -639,8 +640,8 @@ export const createUser = asyncHandler(async (req, res) => {
         message: "Clerk ID already exists",
         existingUser: {
           id: existing._id,
-          email: existing.email
-        }
+          email: existing.email,
+        },
       });
     }
 
@@ -662,21 +663,69 @@ export const createUser = asyncHandler(async (req, res) => {
 });
 // User Management Handlers ==============================================
 
+
 export const editUserDetails = asyncHandler(async (req, res) => {
   const { email } = req.params;
-  const updates = req.body;
+  let updates = req.body;
+
+  // Pre-process updates to handle empty strings
+  if (updates) {
+    updates = Object.fromEntries(
+      Object.entries(updates)
+        // Convert empty strings to undefined
+        .map(([key, value]) => [
+          key, 
+          typeof value === 'string' && value.trim() === '' ? undefined : value
+        ])
+        // Remove undefined values to avoid overwriting with undefined
+        .filter(([_, value]) => value !== undefined)
+    );
+  }
 
   try {
+    // First validate required fields if name is being updated
+    if ('name' in updates) {
+      if (!updates.name || typeof updates.name !== 'string') {
+        return res.status(400).json({ 
+          message: "Name is required and must be a non-empty string" 
+        });
+      }
+    }
+
     const user = await User.findOneAndUpdate(
       { email },
       { $set: updates },
-      { new: true, runValidators: true }
+      { 
+        new: true,
+        runValidators: true,
+        context: 'query'
+      }
     ).select("-password");
 
-    user ? res.json(user) : res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.json(user);
   } catch (error) {
     console.error("User update error:", error);
-    res.status(400).json({ message: "Invalid update data" });
+    
+    // Handle specific error cases
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        message: "Validation failed",
+        details: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    
+    if (error.code === 11000) {
+      return res.status(400).json({ 
+        message: "Duplicate field value",
+        field: Object.keys(error.keyPattern)[0]
+      });
+    }
+
+    return res.status(400).json({ message: "Invalid update data" });
   }
 });
 
@@ -1275,30 +1324,30 @@ export const updateExpiredBookings = async () => {
     const result = await User.updateMany(
       {
         // Find users with active bookings that have passed
-        'bookedVisit.bookingStatus': 'active',
-        'bookedVisit.date': { $lt: new Date() }
+        "bookedVisit.bookingStatus": "active",
+        "bookedVisit.date": { $lt: new Date() },
       },
       {
         // Update matching bookings to 'expired'
-        $set: { 
-          'bookedVisit.$[elem].bookingStatus': 'expired',
-          'bookedVisit.$[elem].metadata.cancelledAt': new Date()
-        }
+        $set: {
+          "bookedVisit.$[elem].bookingStatus": "expired",
+          "bookedVisit.$[elem].metadata.cancelledAt": new Date(),
+        },
       },
       {
         // Array filters for precise targeting
         arrayFilters: [
-          { 
-            'elem.bookingStatus': 'active',
-            'elem.date': { $lt: new Date() }
-          }
-        ]
+          {
+            "elem.bookingStatus": "active",
+            "elem.date": { $lt: new Date() },
+          },
+        ],
       }
     );
 
     console.log(`Expired ${result.modifiedCount} bookings`);
   } catch (error) {
-    console.error('Error updating expired bookings:', error);
+    console.error("Error updating expired bookings:", error);
     throw error;
   }
 };
@@ -1809,36 +1858,72 @@ export const subscribe = asyncHandler(async (req, res) => {
       });
     }
 
-    // Check existing subscription with case insensitivity
+    // Normalize email input
     const normalizedEmail = email.toLowerCase().trim();
+
+    // Check for existing subscription (case insensitive)
     const existingSub = await Subscription.findOne({
       email: { $regex: new RegExp(`^${normalizedEmail}$`, "i") },
     });
 
     if (existingSub) {
-      return res.status(409).json({
-        success: false,
-        message: "This email is already subscribed",
-        errorCode: "DUPLICATE_SUBSCRIPTION",
-        existingSince: existingSub.createdAt,
+      // If already subscribed and not unsubscribed
+      if (!existingSub.unsubscribedAt) {
+        return res.status(409).json({
+          success: false,
+          message: "This email is already subscribed",
+          errorCode: "DUPLICATE_SUBSCRIPTION",
+          existingSince: existingSub.createdAt,
+        });
+      }
+
+      // If previously unsubscribed, resubscribe them
+      existingSub.unsubscribedAt = undefined;
+      existingSub.unsubscribeSource = undefined;
+      existingSub.confirmationSentAt = new Date();
+      await existingSub.save();
+
+      // Send confirmation email
+      const emailContent = getSubscriptionEmail({
+        email: existingSub.email,
+        unsubscribeLink: `${process.env.FRONTEND_URL}/unsubscribe/${existingSub._id}`,
+        year: new Date().getFullYear(),
+      });
+
+      await transporter.sendMail({
+        from: process.env.NOREPLY_EMAIL,
+        to: existingSub.email,
+        subject: "Resubscription Confirmation",
+        html: emailContent,
+        text: stripHtml(emailContent).result,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Resubscribed successfully",
+        data: {
+          id: existingSub._id,
+          email: existingSub.email,
+          createdAt: existingSub.createdAt,
+          updatedAt: existingSub.updatedAt,
+        },
       });
     }
 
-    // Create new subscription with audit fields
+    // Create new subscription
     const newSubscription = await Subscription.create({
       email: normalizedEmail,
-      source: "website_form", // Track subscription source
+      source: "website_form",
       confirmationSentAt: new Date(),
     });
 
-    // Prepare email content
+    // Send confirmation email for new subscription
     const emailContent = getSubscriptionEmail({
       email: newSubscription.email,
       unsubscribeLink: `${process.env.FRONTEND_URL}/unsubscribe/${newSubscription._id}`,
       year: new Date().getFullYear(),
     });
 
-    // Send confirmation email
     await transporter.sendMail({
       from: process.env.NOREPLY_EMAIL,
       to: newSubscription.email,
@@ -1915,31 +2000,36 @@ export const unSubscribe = asyncHandler(async (req, res) => {
     // Normalize email input
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Find and update subscription record
-    const subscription = await Subscription.findOneAndUpdate(
-      {
-        email: normalizedEmail,
-        unsubscribedAt: { $exists: false }, // Only if not already unsubscribed
-      },
-      {
-        $set: {
-          unsubscribedAt: new Date(),
-          unsubscribeSource: "user_request",
-        },
-      },
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    // Find subscription (whether currently subscribed or not)
+    const subscription = await Subscription.findOne({
+      email: { $regex: new RegExp(`^${normalizedEmail}$`, "i") },
+    });
 
     if (!subscription) {
       return res.status(404).json({
         success: false,
-        message: "No active subscription found",
+        message: "No subscription found for this email",
         errorCode: "SUBSCRIPTION_NOT_FOUND",
       });
     }
+
+    // If already unsubscribed
+    if (subscription.unsubscribedAt) {
+      return res.status(200).json({
+        success: true,
+        message: "This email is already unsubscribed",
+        data: {
+          email: subscription.email,
+          subscribedAt: subscription.createdAt,
+          unsubscribedAt: subscription.unsubscribedAt,
+        },
+      });
+    }
+
+    // Update subscription to mark as unsubscribed
+    subscription.unsubscribedAt = new Date();
+    subscription.unsubscribeSource = "user_request";
+    await subscription.save();
 
     // Send confirmation email
     const emailContent = getUnsubscriptionEmail({

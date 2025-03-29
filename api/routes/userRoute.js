@@ -1,5 +1,4 @@
 import express from "express";
-import { attachUser, requireAuth } from "../middleware/authMiddleware.js"; // Added requireAuth import
 import {
   bookVisit,
   cancelBooking,
@@ -25,7 +24,7 @@ import {
 
 const router = express.Router();
 
-// Public routes
+// ================ Public Routes ================
 router.post("/register", createUser);
 router.post("/stripe/create-payment-intent", createPaymentIntent);
 router.get("/payment-status", getPaymentStatus);
@@ -33,20 +32,20 @@ router.post("/paystack/momo", payWithMoMo);
 router.get("/paystack/verify", verifyMoMoPayment);
 router.post("/paystack/webhook", paystackWebhook);
 
-// Authenticated routes
-router.post("/bookVisit/:id", requireAuth, attachUser, bookVisit); // Added requireAuth
-router.get("/userDetails/:email", requireAuth, attachUser, fetchUserDetails);
-router.put("/editUserDetails/:email", requireAuth, attachUser, editUserDetails);
-router.get("/fetchAllUsers/:role", requireAuth, attachUser, fetchAllUsers);
-router.post("/bookedVisits", requireAuth, attachUser, fetchUserBookings);
-router.post("/cancelBooking/:id", requireAuth, attachUser, cancelBooking);
-router.post("/addFavourites/:resId", requireAuth, attachUser, userFavourites);
-router.post("/fetchUserfavourites", requireAuth, attachUser, fetchUserFavourites);
-router.get("/fetchAllBookings", requireAuth, attachUser, fetchAllBookings);
-router.post("/subscribe", requireAuth, attachUser, subscribe);
-router.get("/getSubscription", requireAuth, attachUser, fetchSingleSubscriptions);
-router.delete("/unsubscribe", requireAuth, attachUser, unSubscribe);
-router.get("/fetchAllSubscriptions", requireAuth, attachUser, fetchAllSubscriptions);
-router.put("/:userEmail/bookings/:bookingId", requireAuth, attachUser, updateVisitStatusFromAdmin);
+// ================ Authenticated Routes ================
+router.post("/bookVisit/:id", bookVisit);
+router.get("/userDetails/:email", fetchUserDetails);
+router.put("/editUserDetails/:email", editUserDetails);
+router.get("/fetchAllUsers/:role", fetchAllUsers);
+router.post("/bookedVisits", fetchUserBookings);
+router.post("/cancelBooking/:id", cancelBooking);
+router.post("/addFavourites/:resId", userFavourites);
+router.post("/fetchUserfavourites", fetchUserFavourites);
+router.get("/fetchAllBookings", fetchAllBookings);
+router.post("/subscribe", subscribe);
+router.get("/getSubscription", fetchSingleSubscriptions);
+router.delete("/unsubscribe", unSubscribe);
+router.get("/fetchAllSubscriptions", fetchAllSubscriptions);
+router.put("/:userEmail/bookings/:bookingId", updateVisitStatusFromAdmin);
 
 export default router;

@@ -17,13 +17,11 @@ export const clerkWebhook = async (req, res) => {
     return res.status(400).json({ error: "Invalid webhook signature" });
   }
 
-  // Add user.updated handler here
+  // Handle user.updated event
   if (evt.type === "user.updated") {
-    
     try {
       const { id: clerkId } = evt.data;
       const newRole = evt.data.public_metadata?.role || "user";
-      
 
       const user = await User.findOneAndUpdate(
         { clerkId },
@@ -38,10 +36,7 @@ export const clerkWebhook = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: "User role updated",
-        user: {
-          id: user._id,
-          role: user.role,
-        },
+        user: { id: user._id, role: user.role },
       });
     } catch (error) {
       console.error("Role update error:", error);
@@ -49,74 +44,59 @@ export const clerkWebhook = async (req, res) => {
     }
   }
 
+  // Handle user.created event
   if (evt.type === "user.created") {
     const session = await mongoose.startSession();
     session.startTransaction();
-    
 
     try {
-      const { id: clerkId } = evt.data;
-      const email = evt.data.email_addresses?.[0]?.email_address;
-      const username = evt.data.username || email.split("@")[0];
+      const { id: clerkId, email_addresses, image_url, username } = evt.data;
+      const email = email_addresses?.[0]?.email_address;
+      const name = username || email?.split("@")[0];
 
       if (!email) {
         await session.abortTransaction();
         return res.status(400).json({ error: "Email not found" });
       }
 
-      // Check for existing user by clerkId or email
-      const existingUser = await User.findOne({
-        $or: [{ clerkId }, { email }],
-      }).session(session);
+      // Check if user already exists
+      let user = await User.findOne({ $or: [{ clerkId }, { email }] }).session(session);
 
-      if (existingUser) {
-        // Case 1: Existing user with matching clerkId - log them in
-        if (existingUser.clerkId === clerkId) {
+      if (user) {
+        if (user.clerkId === clerkId) {
           await session.abortTransaction();
-          return res.status(200).json({
-            message: "User logged in",
-            user: existingUser,
-          });
+          return res.status(200).json({ message: "User already exists", user });
         }
 
-        // Case 2: Email exists with different clerkId - update clerkId
-        if (existingUser.email === email) {
-          existingUser.clerkId = clerkId;
-          existingUser.image = evt.data.image_url || existingUser.image;
-          await existingUser.save({ session });
+        // If email exists with different clerkId, update clerkId
+        user.clerkId = clerkId;
+        user.image = image_url || user.image;
+        await user.save({ session });
 
-          await session.commitTransaction();
-          return res.status(200).json({
-            message: "User account updated",
-            user: existingUser,
-          });
-        }
+        await session.commitTransaction();
+        return res.status(200).json({ message: "User updated", user });
       }
 
-      // Case 3: New user - create account
-      const newUser = new User({
+      // Create new user
+      user = new User({
         clerkId,
-        name: username,
+        name,
         email,
-        image: evt.data.image_url,
+        image: image_url,
         role: evt.data.public_metadata?.role || "user",
       });
 
-      await newUser.save({ session });
+      await user.save({ session });
       await session.commitTransaction();
-      return res.status(201).json({
-        success: true,
-        user: newUser,
-      });
+      return res.status(201).json({ success: true, user });
     } catch (error) {
       await session.abortTransaction();
+
+      // Handle duplicate key errors
       if (error.code === 11000) {
-        const key = Object.keys(error.keyPattern)[0];
-        return res.status(409).json({
-          error: `User with ${key} already exists`,
-          [key]: error.keyValue[key],
-        });
+        return res.status(409).json({ error: `User already exists`, key: error.keyValue });
       }
+
       console.error("Webhook error:", error);
       return res.status(500).json({ error: "Internal server error" });
     } finally {

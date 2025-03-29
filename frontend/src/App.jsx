@@ -1,7 +1,12 @@
 import React, { Suspense, useState, useEffect } from "react";
 import "./App.css";
 import Entry from "./pages/Entry";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+} from "react-router-dom";
 import Layout from "./layout/Layout";
 import Listings from "./pages/Listings/Listings";
 import { QueryClient, QueryClientProvider } from "react-query";
@@ -15,13 +20,33 @@ import Favourites from "./Components/Favourites/Favourites";
 import UserListings from "./pages/AllUserProperties/UserListings";
 import AllBookings from "./pages/AllBookings/AllBookings";
 import AllUsers from "./pages/users/AllUsers";
-import MySettings from "./pages/MySettings";
 import Login from "./hooks/clerkLogin/Login";
 import Register from "./hooks/clerkSignUp/Register";
 import { ClerkProvider } from "@clerk/clerk-react";
 import { useAuth } from "@clerk/clerk-react";
 
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+if (!PUBLISHABLE_KEY) {
+  throw new Error("Missing Publishable Key");
+}
+
 const queryClient = new QueryClient();
+
+const ClerkProviderWithRoutes = ({ children }) => {
+  const navigate = useNavigate();
+  return (
+    <ClerkProvider
+      publishableKey={PUBLISHABLE_KEY}
+      navigate={(to) => navigate(to)}
+      signInUrl="/login"
+      signUpUrl="/register"
+      afterSignInUrl="/"
+      afterSignUpUrl="/"
+    >
+      {children}
+    </ClerkProvider>
+  );
+};
 
 const UserDetailsProvider = ({ children }) => {
   const { getToken } = useAuth();
@@ -36,17 +61,17 @@ const UserDetailsProvider = ({ children }) => {
     const fetchToken = async () => {
       try {
         const token = await getToken();
-        setUserDetails(prev => ({ 
-          ...prev, 
+        setUserDetails((prev) => ({
+          ...prev,
           token,
-          loading: false 
+          loading: false,
         }));
       } catch (error) {
         console.error("Token fetch error:", error);
-        setUserDetails(prev => ({ ...prev, loading: false }));
+        setUserDetails((prev) => ({ ...prev, loading: false }));
       }
     };
-    
+
     fetchToken();
   }, [getToken]);
 
@@ -59,11 +84,13 @@ const UserDetailsProvider = ({ children }) => {
 
 function App() {
   return (
-    <ClerkProvider publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}>
+    <Router>
       <QueryClientProvider client={queryClient}>
-        <UserDetailsProvider>
-          <Router>
-            <Suspense fallback={<div>Loading ...</div>}>
+        <ClerkProviderWithRoutes>
+          <UserDetailsProvider>
+            <Suspense
+              fallback={<div className="loading-screen">Loading...</div>}
+            >
               <Routes>
                 <Route path="/" element={<Layout />}>
                   <Route index element={<Entry />} />
@@ -76,16 +103,26 @@ function App() {
                   <Route path="/mylistings" element={<UserListings />} />
                   <Route path="/allbookings" element={<AllBookings />} />
                   <Route path="/allusers" element={<AllUsers />} />
-                  <Route path="/mysettings" element={<MySettings />} />
+                  {/* <Route path="/mysettings" element={<MySettings />} /> */}
                 </Route>
               </Routes>
             </Suspense>
-          </Router>
-          <ToastContainer />
-          <ReactQueryDevtools initialIsOpen={false} />
-        </UserDetailsProvider>
+            <ToastContainer
+              position="bottom-right"
+              autoClose={5000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+            />
+            <ReactQueryDevtools initialIsOpen={false} />
+          </UserDetailsProvider>
+        </ClerkProviderWithRoutes>
       </QueryClientProvider>
-    </ClerkProvider>
+    </Router>
   );
 }
 

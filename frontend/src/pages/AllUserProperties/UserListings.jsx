@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import "./UserListings.css";
 import SearchBar from "../../Components/SearchBar/SearchBar";
 import { PuffLoader } from "react-spinners";
@@ -8,22 +8,32 @@ import { useAuth0 } from "@auth0/auth0-react";
 import { fetchAllUsersProperty } from "../../utils/api";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { toast } from "react-toastify";
+import { useAuth, useUser } from "@clerk/clerk-react";
 
 function UserListings() {
   const { userDetails } = useContext(UserDetailsContext);
-  const token = userDetails?.token;
-  const { user } = useAuth0();
+  const [token, setToken] = useState(null);
+  const { getToken } = useAuth();
+  const { user } = useUser();
   const [filter, setFilter] = useState("");
+
+  useEffect(() => {
+    const fetchToken = async () => {
+      const token = await getToken();
+      setToken(token);
+    };
+    fetchToken()
+  }, [getToken]);
 
   const {
     data: userListings,
     isLoading,
     isError,
   } = useQuery(
-    ["fetchAllUserListings", user?.email],
-    () => fetchAllUsersProperty(user?.email, token),
+    ["fetchAllUserListings", user?.primaryEmailAddress?.emailAddress],
+    () => fetchAllUsersProperty(user?.primaryEmailAddress?.emailAddress, token),
     {
-      enabled: !!user?.email && !!token, // Only run the query if user email exists
+      enabled: !!user?.primaryEmailAddress?.emailAddress && !!token, // Only run the query if user email exists
       onError: (error) => {
         toast.error("Failed to fetch user listings");
         console.error("Error fetching user listings:", error);

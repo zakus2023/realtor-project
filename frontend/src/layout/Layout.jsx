@@ -24,6 +24,18 @@ function Layout() {
         name: `${user?.firstName} ${user?.lastName}`,
         image: user?.profileImageUrl
       }, token);
+    },
+    onSuccess: (data) => {
+      if (data && mountedRef.current) {
+        setUserDetails(prev => ({
+          ...prev,
+          bookings: data.bookings || [],
+          favorites: data.favorites || []
+        }));
+      }
+    },
+    onError: (error) => {
+      console.error("User creation error:", error);
     }
   });
 
@@ -55,7 +67,7 @@ function Layout() {
     return () => {
       mountedRef.current = false;
     };
-  }, [isLoaded, isSignedIn, user, getToken, setUserDetails]);
+  }, [isLoaded, isSignedIn, user, getToken, setUserDetails, mutate]);
 
   return (
     <div style={{ background: "var(--black)", overflow: "hidden" }}>

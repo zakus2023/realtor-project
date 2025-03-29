@@ -171,10 +171,12 @@ function CreateListing({ opened, setOpened }) {
       console.error("formData is undefined");
       return;
     }
-
+  
     try {
       setUploading(true);
       const authToken = await fetchAuthToken();
+      
+      // Create payload with all necessary data including clerkUserId
       const payload = {
         title: formData.title,
         description: formData.description,
@@ -192,13 +194,11 @@ function CreateListing({ opened, setOpened }) {
         images: formData.images,
         documentations: formData.documentations,
         imagesCount: formData.images.length,
+        clerkUserId: user?.id // Add Clerk user ID to payload
       };
-
-      // ONLY CHANGED LINES (added clerkUserId)
+  
       mutate({
-        payload: {
-          ...payload,
-        },
+        payload,
         email: user?.primaryEmailAddress?.emailAddress,
         token: authToken,
       });

@@ -24,8 +24,7 @@ import LikeButton from "../../Components/LikeButton/LikeButton.";
 function Listing() {
   const { user } = useUser();
   const { getToken } = useAuth();
-   const [token, setToken] = useState(null);
-   console.log("token from listing: ", token)
+  const [token, setToken] = useState(null);
   
   const { id } = useParams();
   const { data, isError, isLoading } = useQuery(["listing", id], () =>
@@ -41,18 +40,17 @@ function Listing() {
     userDetails: { bookings },
     setUserDetails,
   } = useContext(UserDetailsContext);
-  console.log("Bookings: ", bookings)
 
-   useEffect(() => {
-      const fetchToken = async () => {
-        const clerkToken = await getToken();
-        setToken(clerkToken);
-      };
-      fetchToken();
-    }, [getToken]);
+  useEffect(() => {
+    const fetchToken = async () => {
+      const clerkToken = await getToken();
+      setToken(clerkToken);
+    };
+    fetchToken();
+  }, [getToken]);
 
   // Initialize selectedImage after data is loaded
-  useState(() => {
+  useEffect(() => {
     if (data?.images?.[0]) {
       setSelectedImage(data.images[0]);
     }
@@ -66,7 +64,6 @@ function Listing() {
       enabled: !!user?.primaryEmailAddress?.emailAddress && !!token,
     }
   );
-  console.log("User detail: ", userDetail);
 
   // Cancel booking mutation
   const { mutate: removeBooking, isLoading: cancelling } = useMutation({
@@ -96,6 +93,23 @@ function Listing() {
         visit.bookingStatus === "active" &&
         visit.visitStatus === "pending"
     );
+
+  // Safely parse facilities data
+  const getFacilities = () => {
+    try {
+      if (!data?.facilities) return { beds: 0, baths: 0, kitchen: 0, parking: 0 };
+      
+      if (typeof data.facilities === 'string') {
+        return JSON.parse(data.facilities);
+      }
+      return data.facilities;
+    } catch (error) {
+      console.error("Error parsing facilities:", error);
+      return { beds: 0, baths: 0, kitchen: 0, parking: 0 };
+    }
+  };
+
+  const facilities = getFacilities();
 
   if (isError) {
     return (
@@ -155,19 +169,19 @@ function Listing() {
             <div className="flexStart facilities">
               <div className="flexStart facility">
                 <FaShower size={20} color="#1F3E72" />
-                <span>{data?.facilities?.baths || 0} Bath(s)</span>
+                <span>{facilities.baths || 0} Bath(s)</span>
               </div>
               <div className="flexStart facility">
                 <FaBed size={20} color="#1F3E72" />
-                <span>{data?.facilities?.beds || 0} Beds(s)</span>
+                <span>{facilities.beds || 0} Beds(s)</span>
               </div>
               <div className="flexStart facility">
                 <FaCookie size={20} color="#1F3E72" />
-                <span>{data?.facilities?.kitchen || 0} Kitchen(s)</span>
+                <span>{facilities.kitchen || 0} Kitchen(s)</span>
               </div>
               <div className="flexStart facility">
                 <FaCar size={20} color="#1F3E72" />
-                <span>{data?.facilities?.parking || 0} Parking(s)</span>
+                <span>{facilities.parking || 0} Parking(s)</span>
               </div>
             </div>
 

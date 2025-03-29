@@ -181,6 +181,25 @@ export const getAdminSubscriptionNotification = (data) => emailWrapper(`
   </div>
 `, { ...data, subject: 'New Newsletter Subscription' });
 
+// Admin Unsubscription Notification (NEW TEMPLATE)
+export const getAdminUnsubscriptionNotification = (data) => emailWrapper(`
+  <h2 style="color: #004085; margin-top: 0">Newsletter Unsubscription</h2>
+  <p>A user has unsubscribed from your newsletter:</p>
+  
+  <div style="background: #f8f9fa; padding: 20px; border-radius: 5px">
+    <table width="100%" style="margin: 15px 0; border-collapse: collapse">
+      <tr>
+        <td style="padding: 8px; width: 30%; border-bottom: 1px solid #dee2e6; font-weight: bold">Subscriber Email</td>
+        <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${data.email}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px; width: 30%; font-weight: bold">Unsubscription Date</td>
+        <td style="padding: 8px">${new Date(data.unsubscriptionDate).toLocaleDateString()}</td>
+      </tr>
+    </table>
+  </div>
+`, { ...data, subject: 'Newsletter Unsubscription Notification' });
+
 export const getSubscriptionEmail = (data) => emailWrapper(`
   <h2 style="color: #004085; margin-top: 0">Subscription Confirmed</h2>
   <p>Thank you for subscribing to AetherSoft Realtors!</p>
@@ -228,6 +247,7 @@ export const getUnsubscriptionEmail = (data) => emailWrapper(`
     </div>
   </div>
 `, { ...data, subject: 'Unsubscription Confirmation' });
+
 // Property Created - Owner Notification
 export const getPropertyCreatedOwnerEmail = (data) => emailWrapper(`
   <h2 style="color: #004085; margin-top: 0">Property Submission Received</h2>

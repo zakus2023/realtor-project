@@ -8,10 +8,8 @@
     "node": "20.x",
     "yarn": ">=1.22.19"
   },
-  
   "scripts": {
-   
-    "start": "nodemon index.js", 
+    "start": "nodemon index.js",
     "dev": "nodemon index.js",
     "render-build": "echo 'No build needed'"
   },

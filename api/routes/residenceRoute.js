@@ -7,32 +7,35 @@ import {
   getResidence,
 } from "../controllers/residenceController.js";
 import multer from "multer";
-import { attachUser, checkOwnershipOrAdmin, requireAuth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Updated routes with proper middleware order
+// Add new property
 router.post(
   "/addProperty",
-  requireAuth,    // Verify token first
-  upload.any(),   // Then handle file uploads
-  attachUser,     // Then attach user from verified token
-  addProperty
+  upload.any(), // Handle file uploads
+  addProperty   // Authentication and logic now handled inside controller
 );
 
+// Edit existing property
 router.put(
   "/editProperty/:id",
-  requireAuth,
-  upload.any(),
-  attachUser,
-  checkOwnershipOrAdmin, // Add this middleware
-  editProperty
+  upload.any(), // Handle file uploads
+  editProperty  // Authentication and authorization handled inside controller
 );
 
+// Get all properties (public)
 router.get("/fetchResidencies", getAllProperties);
+
+// Get single property details (public)
 router.get("/fetchResidence/:id", getResidence);
-router.get("/getAllUserProperties", requireAuth, attachUser, getAllUserProperties);
+
+// Get all properties for current user
+router.get(
+  "/getAllUserProperties",
+  getAllUserProperties // Authentication handled inside controller
+);
 
 export default router;

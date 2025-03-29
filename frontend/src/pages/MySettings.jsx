@@ -1,20 +1,90 @@
-import React, { useContext, useState } from "react";
-import UserDetailsContext from "../context/UserDetailsContext";
-import { useAuth0 } from "@auth0/auth0-react";
-import { useQuery, useMutation } from "react-query"; // Import useMutation
-import { fetchUserDetails, editUserDetails } from "../utils/api"; // Import the editUserDetails function
-import { Spin, Button, Avatar, Input, message } from "antd";
-import { UserOutlined } from "@ant-design/icons";
-import "./MySettings.css"; // Add custom CSS for styling
+import React, { useContext, useState, useEffect } from "react";
+import { Dropdown, Menu, Modal, Spin, Button, Avatar, Input, message } from "antd";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation } from "react-query";
+import { fetchUserDetails, editUserDetails } from "../../utils/api";
+import UserDetailsContext from "../../context/UserDetailsContext";
+import { UserOutlined } from "@ant-design/icons";
+import { useAuth } from "@clerk/clerk-react";
 
-function MySettings() {
-  const navigate = useNavigate();
-
+function ProfileMenu({ user, logout }) {
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const { userDetails } = useContext(UserDetailsContext);
-  const token = userDetails.token;
-  const { user } = useAuth0();
-  const [isEditing, setIsEditing] = useState(false); // State to toggle edit mode
+  const [token, setToken] = useState(null);
+  const navigate = useNavigate();
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    const fetchToken = async () => {
+      const token = await getToken();
+      setToken(token);
+    };
+    fetchToken();
+  }, [getToken]);
+
+  const menu = (
+    <Menu>
+      <Menu.Item key="favourites" onClick={() => navigate("/favourites")}>
+        Favourites
+      </Menu.Item>
+      <Menu.Item key="mybookings" onClick={() => navigate("/userBookings")}>
+        My Bookings
+      </Menu.Item>
+      <Menu.Item key="mylistings" onClick={() => navigate("/mylistings")}>
+        My Listings
+      </Menu.Item>
+      <Menu.Item key="mysettings" onClick={() => setSettingsModalVisible(true)}>
+        Settings
+      </Menu.Item>
+      {user?.publicMetadata?.role === "admin" && (
+        <>
+          <Menu.Item key="allbookings" onClick={() => navigate("/allbookings")}>
+            All Bookings
+          </Menu.Item>
+          <Menu.Item key="allusers" onClick={() => navigate("allusers")}>
+            All Users
+          </Menu.Item>
+        </>
+      )}
+    </Menu>
+  );
+
+  return (
+    <>
+      <Dropdown overlay={menu} trigger={["click"]}>
+        <button
+          style={{
+            cursor: "pointer",
+            backgroundColor: "orange",
+            padding: "8px 10px",
+            borderRadius: "5px",
+            border: "none",
+            fontWeight: "600",
+          }}
+        >
+          My Portal
+        </button>
+      </Dropdown>
+
+      <Modal
+        title="My Settings"
+        open={settingsModalVisible}
+        onCancel={() => setSettingsModalVisible(false)}
+        footer={null}
+        width={800}
+      >
+        <SettingsModalContent
+          user={user}
+          token={token}
+          onClose={() => setSettingsModalVisible(false)}
+        />
+      </Modal>
+    </>
+  );
+}
+
+const SettingsModalContent = ({ user, token, onClose }) => {
+  const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -22,18 +92,16 @@ function MySettings() {
     telephone: "",
   });
 
-  // Fetch user details
   const {
     data: userData,
     isLoading,
     isError,
   } = useQuery(
-    ["fetchUserDetails", user?.email],
-    () => fetchUserDetails(user?.email, token),
+    ["fetchUserDetails", user?.primaryEmailAddress?.emailAddress],
+    () => fetchUserDetails(user?.primaryEmailAddress?.emailAddress, token),
     {
-      enabled: !!user?.email && !!token, // Only run the query if user email exists
+      enabled: !!user?.primaryEmailAddress?.emailAddress && !!token,
       onSuccess: (data) => {
-        // Initialize form data with fetched user details
         setFormData({
           name: data?.name || "",
           email: data?.email || "",
@@ -44,12 +112,10 @@ function MySettings() {
     }
   );
 
-  // Mutation for editing user details
   const editUserMutation = useMutation(
     (updatedData) => editUserDetails(userData?.email, updatedData, token),
     {
       onSuccess: (updatedUser) => {
-        // Update the local state with the updated user data
         setFormData({
           name: updatedUser.name,
           email: updatedUser.email,
@@ -57,16 +123,18 @@ function MySettings() {
           telephone: updatedUser.telephone,
         });
         message.success("Profile updated successfully!");
-        setIsEditing(false); // Exit edit mode
+        setIsEditing(false);
       },
       onError: (error) => {
         console.error("Error updating profile:", error);
-        message.error("Failed to update profile. Please try again.");
+        const errorMessage = error.response?.data?.message || 
+                           error.message || 
+                           "Failed to update profile. Please try again.";
+        message.error(errorMessage);
       },
     }
   );
 
-  // Handle input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prevData) => ({
@@ -75,20 +143,27 @@ function MySettings() {
     }));
   };
 
-  // Handle save button click
   const handleSave = () => {
-    // Prepare the updated data
+    // Convert empty strings to null before sending to the backend
     const updatedData = {
-      name: formData.name,
-      address: formData.address,
-      telephone: formData.telephone,
+      name: formData.name?.trim() || null,
+      address: formData.address?.trim() || null,
+      telephone: formData.telephone?.trim() || null,
     };
 
-    // Call the mutation to update user details
+    // Check if at least one field has a non-empty value
+    const hasValidUpdate = Object.values(updatedData).some(
+      value => value !== null && value !== undefined && value !== ""
+    );
+
+    if (!hasValidUpdate) {
+      message.error("Please provide at least one field to update");
+      return;
+    }
+
     editUserMutation.mutate(updatedData);
   };
 
-  // Handle loading state
   if (isLoading) {
     return (
       <div className="loading-container">
@@ -97,7 +172,6 @@ function MySettings() {
     );
   }
 
-  // Handle error state
   if (isError) {
     return (
       <div className="error-container">
@@ -107,14 +181,13 @@ function MySettings() {
   }
 
   return (
-    <div className="wrapper paddings innerWidth">
-      <h1 className="settings-title">My Settings</h1>
+    <div className="wrapper paddings">
       <div className="user-details-card">
         <div className="avatar-container">
           <Avatar
             size={100}
             icon={<UserOutlined />}
-            src={userData?.image} // Display user's image if available
+            src={userData?.image}
             className="user-avatar"
           />
         </div>
@@ -124,12 +197,14 @@ function MySettings() {
             {isEditing ? (
               <Input
                 name="name"
-                value={formData.name}
+                value={formData.name || ""}
                 onChange={handleInputChange}
                 placeholder="Enter your name"
               />
             ) : (
-              <span className="info-value">{userData?.name || "N/A"}</span>
+              <span className="info-value">
+                {userData?.name || user?.fullName}
+              </span>
             )}
           </div>
           <div className="user-info-item">
@@ -137,13 +212,15 @@ function MySettings() {
             {isEditing ? (
               <Input
                 name="email"
-                value={formData.email}
+                value={formData.email || user?.primaryEmailAddress?.emailAddress || ""}
                 onChange={handleInputChange}
                 placeholder="Enter your email"
-                disabled // Email is non-editable
+                disabled
               />
             ) : (
-              <span className="info-value">{userData?.email || "N/A"}</span>
+              <span className="info-value">
+                {user?.primaryEmailAddress?.emailAddress || "N/A"}
+              </span>
             )}
           </div>
           <div className="user-info-item">
@@ -151,7 +228,7 @@ function MySettings() {
             {isEditing ? (
               <Input
                 name="address"
-                value={formData.address}
+                value={formData.address || ""}
                 onChange={handleInputChange}
                 placeholder="Enter your address"
               />
@@ -164,7 +241,7 @@ function MySettings() {
             {isEditing ? (
               <Input
                 name="telephone"
-                value={formData.telephone}
+                value={formData.telephone || ""}
                 onChange={handleInputChange}
                 placeholder="Enter your telephone"
               />
@@ -174,25 +251,23 @@ function MySettings() {
           </div>
           <div className="user-info-item">
             <span className="info-label">Role:</span>
-            <span className="info-value">{userData?.role || "N/A"}</span>
-          </div>
-          <div className="user-info-item">
-            <span className="info-label">Status:</span>
-            <span className="info-value">{userData?.status || "N/A"}</span>
+            <span className="info-value">
+              {userData?.role || user?.publicMetadata?.role}
+            </span>
           </div>
         </div>
         <div
           className="button-container"
           style={{ display: "flex", gap: "1rem" }}
         >
-          <button className="cancelButton" onClick={() => navigate("/")} type="button">
-            Cancel
+          <button className="cancelButton" onClick={onClose} type="button">
+            Close
           </button>
           {isEditing ? (
             <Button
               type="primary"
               onClick={handleSave}
-              loading={editUserMutation.isLoading} // Show loading state during mutation
+              loading={editUserMutation.isLoading}
             >
               Save
             </Button>
@@ -205,6 +280,6 @@ function MySettings() {
       </div>
     </div>
   );
-}
+};
 
-export default MySettings;
+export default ProfileMenu;

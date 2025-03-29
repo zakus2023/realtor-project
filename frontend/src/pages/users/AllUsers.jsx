@@ -1,35 +1,25 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import UserDetailsContext from "../../context/UserDetailsContext";
-import { useAuth0 } from "@auth0/auth0-react";
-import { useQuery, useMutation } from "react-query";
-import { fetchAllUsers, fetchUserDetails, editUserDetails } from "../../utils/api";
-import { Table, Select, Spin } from "antd";
+import { useQuery } from "react-query";
+import { fetchAllUsers } from "../../utils/api";
+import { Table, Spin } from "antd";
 import { toast } from "react-toastify";
-import "./AllUsers.css"; // Import the CSS file
-
-const { Option } = Select;
+import "./AllUsers.css";
+import { useAuth, useUser } from "@clerk/clerk-react";
 
 function AllUsers() {
   const { userDetails } = useContext(UserDetailsContext);
-  const token = userDetails.token;
-  const { user } = useAuth0();
+  const { user } = useUser();
+  const [token, setToken] = useState(null);
+  const { getToken } = useAuth();
 
-  // Fetch single user details
-  const {
-    data: userDetail,
-    isLoading: isUserDetailLoading,
-    isError: isUserDetailError,
-  } = useQuery(
-    ["fetchUserDetails", user?.email],
-    () => fetchUserDetails(user?.email, token),
-    {
-      enabled: !!user?.email && !!token, // Only run the query if user email and token exist
-      onError: (error) => {
-        toast.error("Failed to fetch user details");
-        console.error("Error fetching user details:", error);
-      },
-    }
-  );
+  useEffect(() => {
+    const fetchToken = async () => {
+      const token = await getToken();
+      setToken(token);
+    };
+    fetchToken();
+  }, [getToken]);
 
   // Fetch all users
   const {
@@ -37,11 +27,16 @@ function AllUsers() {
     isLoading: isUsersLoading,
     isError: isUsersError,
   } = useQuery(
-    ["allUsers", userDetail?.role], // Include role in the query key
-    () => fetchAllUsers(user?.email, userDetail?.role, token),
+    ["allUsers", user?.publicMetadata?.role],
+    () =>
+      fetchAllUsers(
+        user?.primaryEmailAddress?.emailAddress,
+        user?.publicMetadata?.role,
+        token
+      ),
     {
-      enabled: !!userDetail?.role && !!token, // Only run the query if role and token exist
-      refetchOnWindowFocus: false, // Disable refetch on window focus
+      enabled: !!user?.publicMetadata?.role && !!token,
+      refetchOnWindowFocus: false,
       onError: (error) => {
         toast.error("Failed to fetch users");
         console.error("Error fetching users:", error);
@@ -49,43 +44,7 @@ function AllUsers() {
     }
   );
 
-  // Mutation for editing user details
-  const editUserMutation = useMutation(
-    ({ email, updatedData }) => editUserDetails(email, updatedData, token),
-    {
-      onSuccess: () => {
-        toast.success("User details updated successfully!");
-      },
-      onError: (error) => {
-        toast.error("Failed to update user details");
-        console.error("Error updating user details:", error);
-      },
-    }
-  );
-
-  // Handle role change
-  const handleRoleChange = (id, value) => {
-    const user = users?.users?.find((user) => user.id === id);
-    if (user) {
-      editUserMutation.mutate({
-        email: user.email,
-        updatedData: { role: value },
-      });
-    }
-  };
-
-  // Handle status change
-  const handleStatusChange = (id, value) => {
-    const user = users?.users?.find((user) => user.id === id);
-    if (user) {
-      editUserMutation.mutate({
-        email: user.email,
-        updatedData: { status: value },
-      });
-    }
-  };
-
-  // Define columns for the Antd Table
+  // Define columns for the Antd Table (only display columns)
   const columns = [
     {
       title: "Name",
@@ -111,35 +70,9 @@ function AllUsers() {
       title: "Role",
       dataIndex: "role",
       key: "role",
-      render: (text, record) => (
-        <Select
-          defaultValue={text}
-          style={{ width: "100%" }} // Make the select dropdown responsive
-          onChange={(value) => handleRoleChange(record.id, value)}
-        >
-          <Option value="user">User</Option>
-          <Option value="admin">Admin</Option>
-        </Select>
-      ),
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (text, record) => (
-        <Select
-          defaultValue={text}
-          style={{ width: "100%" }} // Make the select dropdown responsive
-          onChange={(value) => handleStatusChange(record.id, value)}
-        >
-          <Option value="active">Active</Option>
-          <Option value="inactive">Inactive</Option>
-        </Select>
-      ),
     },
   ];
 
-  // Display error message if there's an error
   if (isUsersError) {
     return (
       <div className="error-message">
@@ -148,7 +81,6 @@ function AllUsers() {
     );
   }
 
-  // Display loading spinner while data is being fetched
   if (isUsersLoading) {
     return (
       <div className="loading-spinner">
@@ -166,7 +98,7 @@ function AllUsers() {
           columns={columns}
           rowKey="id"
           pagination={{ pageSize: 10 }}
-          scroll={{ x: true }} // Enable horizontal scrolling
+          scroll={{ x: true }}
           style={{ width: "100%" }}
         />
       </div>

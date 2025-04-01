@@ -6,36 +6,32 @@ import { PuffLoader } from "react-spinners";
 import PropertyCard from "../../Components/PropertyCard/PropertyCard";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { fetchUserDetails } from "../../utils/api";
-import { useAuth0 } from "@auth0/auth0-react";
 import { useQuery } from "react-query";
+import { useUser } from "@clerk/clerk-react";
 
 function Favourites() {
-  // Get the user info from Auth0
-  const { user } = useAuth0();
-
-  // Fetch the properties from useProperties hook
+  const { user } = useUser();
   const { data: properties, isError, isLoading } = useProperties();
+  const { userDetails: { token } } = useContext(UserDetailsContext);
 
-  // Get the userDetails from the useContext (UserDetailsContext)
-  const {
-    userDetails: { token },
-  } = useContext(UserDetailsContext);
-
-  // Fetch the user information
+  // Fetch user details with proper query key
   const { data: userDetail } = useQuery(
-    ["fetchUserDetails", user?.email],
-    () => fetchUserDetails(user?.email, token),
+    ["fetchUserDetails", user?.primaryEmailAddress?.emailAddress, token],
+    () => fetchUserDetails(user?.primaryEmailAddress?.emailAddress, token),
     {
-      enabled: !!user?.email && !!token, // Only run the query if user email exists
+      enabled: !!user?.primaryEmailAddress?.emailAddress && !!token,
     }
   );
 
-  // Filter properties based on the listing IDs in the bookings
-  const favouriteProperties = properties?.filter((property) =>
-    userDetail?.favResidenciesID?.includes(property.id)
-  );
+  // Convert IDs to strings safely
+  const favoriteIDs = userDetail?.data?.favResidenciesID?.map(favorite => 
+    typeof favorite === 'object' ? favorite._id.toString() : favorite
+  ) || [];
 
-//   =======================================
+  // Filter properties with null checks
+  const favouriteProperties = properties?.filter(property => 
+    favoriteIDs.includes(property._id.toString())
+  ) || [];
 
   if (isError) {
     return (
@@ -48,12 +44,7 @@ function Favourites() {
   if (isLoading) {
     return (
       <div className="wrapper flexCenter" style={{ height: "60vh" }}>
-        <PuffLoader
-          height="80"
-          width="80"
-          radius={1}
-          aria-label="puff-loading"
-        />
+        <PuffLoader height="80" width="80" radius={1} />
       </div>
     );
   }
@@ -63,7 +54,7 @@ function Favourites() {
       <div className="flexColCenter paddings innerWidth listings-container">
         <SearchBar />
         <div className="paddings flexCenter fav-listings">
-          {favouriteProperties?.length > 0 ? (
+          {favouriteProperties.length > 0 ? (
             favouriteProperties.map((card, i) => (
               <PropertyCard key={i} card={card} />
             ))

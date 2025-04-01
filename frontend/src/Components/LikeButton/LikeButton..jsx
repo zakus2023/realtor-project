@@ -2,26 +2,27 @@ import React, { useContext } from "react";
 import { AiFillHeart } from "react-icons/ai";
 import useAuthCheck from "../../hooks/useAuthCheck";
 import { useMutation } from "react-query";
-import { useAuth0 } from "@auth0/auth0-react";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { updateFavourites } from "../../utils/common";
 import { addToFavourites } from "../../utils/api";
 import { toast } from "react-toastify";
 import "./LikeButton.css";
+import { useUser } from "@clerk/clerk-react";
 
 function LikeButton({ id }) {
   const { validateLogin } = useAuthCheck();
-  const { user } = useAuth0();
+  const { user } = useUser();
 
   const {
     userDetails: { favourites, token },
     setUserDetails,
   } = useContext(UserDetailsContext);
+  
 
   const likeColor = favourites.includes(id) ? "#fa3ef5" : "white";
 
   const { mutate } = useMutation({
-    mutationFn: () => addToFavourites(id, user?.email, token),
+    mutationFn: () => addToFavourites(id, user?.primaryEmailAddress?.emailAddress, token),
     onMutate: async () => {
       // Optimistically update the UI
       setUserDetails((prev) => {
@@ -46,6 +47,7 @@ function LikeButton({ id }) {
       toast.error("Error updating favourites");
     },
   });
+  
 
   const handleLike = () => {
     if (validateLogin()) {

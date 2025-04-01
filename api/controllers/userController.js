@@ -869,7 +869,7 @@ export const fetchUserDetails = asyncHandler(async (req, res) => {
       })
       .populate({
         path: "favResidenciesID",
-        select: "title images price status",
+        select: "_id title images price status",
         match: { status: "published" },
       })
       .lean();
@@ -946,7 +946,6 @@ export const fetchAllSubscriptions = asyncHandler(async (req, res) => {
   }
 });
 
-// Favorites Handlers ===================================================
 
 export const userFavourites = asyncHandler(async (req, res) => {
   const { email } = req.body;

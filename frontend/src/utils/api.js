@@ -7,26 +7,23 @@ import { toast } from "react-toastify"; // Import toast notifications for error 
 export const api = axios.create({
   baseURL: "http://localhost:5000", // Base URL for backend API requests
 });
-
-// fetch user details
 // Update your fetchUserDetails to handle token properly
 export const fetchUserDetails = async (email, token) => {
   try {
     if (!token) throw new Error("No authentication token");
-    
+
     const response = await api.get(`/api/user/userDetails/${email}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
-    
+
     return response.data;
   } catch (error) {
     console.error("Fetch error:", error);
     throw new Error(error.message || "Failed to fetch user details");
   }
 };
-
 // Function to fetch all property listings from the backend
 export const getAllProperties = async () => {
   try {
@@ -46,7 +43,6 @@ export const getAllProperties = async () => {
     throw error; // Rethrow the error for further handling
   }
 };
-
 // Function to fetch a single property listing by ID
 export const getListing = async (id) => {
   try {
@@ -66,7 +62,6 @@ export const getListing = async (id) => {
     throw error; // Rethrow the error for handling elsewhere
   }
 };
-
 // Function to create/register a user in the backend
 export const createUser = async (userData, token) => {
   try {
@@ -76,7 +71,7 @@ export const createUser = async (userData, token) => {
         email: userData.email,
         clerkId: userData.clerkId,
         name: userData.name,
-        image: userData.image
+        image: userData.image,
       },
       {
         headers: {
@@ -91,7 +86,6 @@ export const createUser = async (userData, token) => {
   }
 };
 // book a visit
-
 export const bookVisit = async ({
   date,
   time,
@@ -132,7 +126,6 @@ export const bookVisit = async ({
     throw error;
   }
 };
-
 // cancel Booking
 export const cancelBooking = async (id, email, token) => {
   try {
@@ -152,9 +145,7 @@ export const cancelBooking = async (id, email, token) => {
     throw error;
   }
 };
-
 // Like or favourite
-
 export const addToFavourites = async (resId, email, token) => {
   try {
     if (!email || !token) {
@@ -178,7 +169,6 @@ export const addToFavourites = async (resId, email, token) => {
     throw error;
   }
 };
-
 // add property
 export const addPropertyApiCallFunction = async ({ payload, email, token }) => {
   try {
@@ -219,9 +209,7 @@ export const addPropertyApiCallFunction = async ({ payload, email, token }) => {
     throw error;
   }
 };
-
 // =============================================================================
-
 // edit property
 export const editPropertyApiCallFunction = async ({
   id,
@@ -234,15 +222,15 @@ export const editPropertyApiCallFunction = async ({
 
     // Handle existing files
     const existingImages = payload.images
-      .filter(img => typeof img === 'string' || img.url)
-      .map(img => typeof img === 'string' ? img : img.url);
+      .filter((img) => typeof img === "string" || img.url)
+      .map((img) => (typeof img === "string" ? img : img.url));
     const existingDocs = payload.documentations
-      .filter(doc => typeof doc === 'string' || doc.url)
-      .map(doc => typeof doc === 'string' ? doc : doc.url);
+      .filter((doc) => typeof doc === "string" || doc.url)
+      .map((doc) => (typeof doc === "string" ? doc : doc.url));
 
-    formData.append('existingImages', JSON.stringify(existingImages));
-    formData.append('existingDocs', JSON.stringify(existingDocs));
-    formData.append('imagesCount', existingImages.length);
+    formData.append("existingImages", JSON.stringify(existingImages));
+    formData.append("existingDocs", JSON.stringify(existingDocs));
+    formData.append("imagesCount", existingImages.length);
 
     // Handle new file uploads and other fields
     for (const key in payload) {
@@ -255,7 +243,7 @@ export const editPropertyApiCallFunction = async ({
             formData.append(key, file.originFileObj);
           }
         });
-      } else if (key !== 'images' && key !== 'documentations') {
+      } else if (key !== "images" && key !== "documentations") {
         formData.append(key, payload[key]);
       }
     }
@@ -282,7 +270,6 @@ export const editPropertyApiCallFunction = async ({
     throw error;
   }
 };
-
 // fetch all current user properties
 export const fetchAllUsersProperty = async (email, token) => {
   console.log("User from api: ", email, "token from api: ", token);
@@ -306,7 +293,6 @@ export const fetchAllUsersProperty = async (email, token) => {
     throw error;
   }
 };
-
 // Function to fetch all bookings
 export const fetchAllBookings = async (token) => {
   console.log(token);
@@ -327,7 +313,6 @@ export const fetchAllBookings = async (token) => {
     throw error;
   }
 };
-
 // Function to fetch all users (with role check)
 export const fetchAllUsers = async (email, role, token) => {
   try {
@@ -365,11 +350,8 @@ export const fetchAllUsers = async (email, role, token) => {
     throw error; // Rethrow the error for further handling
   }
 };
-
 // =========================================================
-
 // Function to edit user details
-
 export const editUserDetails = async (email, updatedData, token) => {
   try {
     // Pre-process the data before sending
@@ -377,7 +359,7 @@ export const editUserDetails = async (email, updatedData, token) => {
       Object.entries(updatedData || {})
         .map(([key, value]) => [
           key,
-          typeof value === 'string' && value.trim() === '' ? undefined : value
+          typeof value === "string" && value.trim() === "" ? undefined : value,
         ])
         .filter(([_, value]) => value !== undefined)
     );
@@ -388,20 +370,18 @@ export const editUserDetails = async (email, updatedData, token) => {
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
       }
     );
 
     return response.data;
   } catch (error) {
-    console.error('Error updating user details:', error);
+    console.error("Error updating user details:", error);
     throw error;
   }
 };
-
 // fetch a single subscription
-
 export const fetchSubscription = async (email, token) => {
   const response = await api.get("/api/user/getSubscription", {
     params: { email }, // Pass email as a query parameter
@@ -411,7 +391,6 @@ export const fetchSubscription = async (email, token) => {
   });
   return response.data;
 };
-
 // fetch all subscriptions
 export const fetchAllSubscriptions = async (token) => {
   try {
@@ -426,14 +405,12 @@ export const fetchAllSubscriptions = async (token) => {
     throw error;
   }
 };
-
 export const updateVisitStatusFromAdmin = async (
   userEmail,
   bookingId,
   visitStatus,
   token
 ) => {
-
   try {
     const response = await api.put(
       `/api/user/${userEmail}/bookings/${bookingId}`,
@@ -446,7 +423,10 @@ export const updateVisitStatusFromAdmin = async (
     );
     return response.data;
   } catch (error) {
-    console.error("Error updating booking status:", error.response?.data || error.message);
+    console.error(
+      "Error updating booking status:",
+      error.response?.data || error.message
+    );
     toast.error("Failed to update user bookings"); // Show error notification
     throw error; // Rethrow the error for further handling
   }

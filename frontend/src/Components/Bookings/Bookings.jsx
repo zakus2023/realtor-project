@@ -8,10 +8,11 @@ import UserDetailsContext from "../../context/UserDetailsContext";
 import { fetchUserDetails } from "../../utils/api";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useQuery } from "react-query";
+import { useUser } from "@clerk/clerk-react";
 
 function Bookings() {
   // Get the user info from Auth0
-  const { user } = useAuth0();
+  const { user } = useUser();
 
   // Fetch the properties from useProperties hook
   const { data: properties, isError, isLoading } = useProperties();
@@ -23,10 +24,10 @@ function Bookings() {
 
   // Fetch the user information
   const { data: userDetail } = useQuery(
-    ["fetchUserDetails", user?.email],
-    () => fetchUserDetails(user?.email, token),
+    ["fetchUserDetails", user?.primaryEmailAddress?.emailAddress],
+    () => fetchUserDetails(user?.primaryEmailAddress?.emailAddress, token),
     {
-      enabled: !!user?.email && !!token, // Only run the query if user email exists
+      enabled: !!user?.primaryEmailAddress?.emailAddress && !!token, // Only run the query if user email exists
     }
   );
 

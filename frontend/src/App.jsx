@@ -24,6 +24,8 @@ import Login from "./hooks/clerkLogin/Login";
 import Register from "./hooks/clerkSignUp/Register";
 import { ClerkProvider } from "@clerk/clerk-react";
 import { useAuth } from "@clerk/clerk-react";
+import StripePaymentSuccess from "./pages/StripePaymentSuccess";
+import StripePaymentCancel from "./pages/StripePaymentCancel";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!PUBLISHABLE_KEY) {
@@ -103,6 +105,14 @@ function App() {
                   <Route path="/mylistings" element={<UserListings />} />
                   <Route path="/allbookings" element={<AllBookings />} />
                   <Route path="/allusers" element={<AllUsers />} />
+                  <Route
+                    path="/stripe-payment-success"
+                    element={<StripePaymentSuccess />}
+                  />
+                  <Route
+                    path="/stripe-payment-cancel"
+                    element={<StripePaymentCancel />}
+                  />
                   {/* <Route path="/mysettings" element={<MySettings />} /> */}
                 </Route>
               </Routes>

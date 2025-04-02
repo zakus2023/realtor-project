@@ -1,54 +1,52 @@
 import React from "react";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
-const StripePayment = ({ onSuccess, onFailure }) => {
+const StripePayment = ({ amount, onSuccess, onFailure }) => {
   const stripe = useStripe();
   const elements = useElements();
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+ // In StripePayment.js handleSubmit
+ const handleSubmit = async (event) => {
+  event.preventDefault();
+  if (!stripe || !elements) return;
 
-    if (!stripe || !elements) {
-      return;
-    }
+  try {
+    // 1. Create payment method
+    const { error: pmError, paymentMethod } = await stripe.createPaymentMethod({
+      type: "card",
+      card: elements.getElement(CardElement),
+    });
+    if (pmError) throw pmError;
 
-    const cardElement = elements.getElement(CardElement);
-
-    try {
-      // Create a payment method using Stripe
-      const { error, paymentMethod } = await stripe.createPaymentMethod({
-        type: "card",
-        card: cardElement,
-      });
-
-      if (error) {
-        console.error("Stripe payment error:", error);
-        onFailure(error);
-        return;
+    // 2. Create payment intent
+    const response = await fetch("http://localhost:5000/api/user/stripe/create-payment-intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        paymentMethodId: paymentMethod.id,
+        amount: amount,
+      }),
+    });
+    
+    const { data: paymentIntent } = await response.json();
+    console.log("Payment Intent: ", paymentIntent)
+    
+    // 3. Handle payment confirmation
+    if (paymentIntent.status === "requires_action") {
+      const { error: confirmError, paymentIntent: confirmedPI } = 
+        await stripe.confirmCardPayment(paymentIntent.client_secret);
+      
+      if (confirmError) throw confirmError;
+      if (confirmedPI.status === "succeeded") {
+        onSuccess(confirmedPI.id); // Pass PI ID to parent
       }
-
-      // Call your backend to confirm the payment
-      const response = await fetch("http://localhost:5000/api/user/stripe/create-payment-intent", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ paymentMethodId: paymentMethod.id }),
-      });
-
-      const paymentResult = await response.json();
-
-      if (paymentResult.success) {
-        onSuccess(paymentResult); // Notify parent component of success
-      } else {
-        onFailure(paymentResult); // Notify parent component of failure
-      }
-    } catch (error) {
-      console.error("Payment error:", error);
-      onFailure(error); // Notify parent component of failure
+    } else if (paymentIntent.status === "succeeded") {
+      onSuccess(paymentIntent.paymentIntentId); // Pass PI ID to parent
     }
-  };
-
+  } catch (error) {
+    onFailure(error);
+  }
+};
   return (
     <form
       onSubmit={handleSubmit}

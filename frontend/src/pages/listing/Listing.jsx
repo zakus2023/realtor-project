@@ -25,6 +25,7 @@ function Listing() {
   const { user } = useUser();
   const { getToken } = useAuth();
   const [token, setToken] = useState(null);
+  const amount = 10
   
   const { id } = useParams();
   const { data, isError, isLoading } = useQuery(["listing", id], () =>
@@ -67,7 +68,7 @@ function Listing() {
 
   // Cancel booking mutation
   const { mutate: removeBooking, isLoading: cancelling } = useMutation({
-    mutationFn: () => cancelBooking(id, user?.email, token),
+    mutationFn: () => cancelBooking(id, user?.primaryEmailAddress?.emailAddress, token),
     onSuccess: () => {
       setUserDetails((prev) => {
         const updatedBookings = prev.bookings.map((booking) =>
@@ -203,8 +204,8 @@ function Listing() {
               </span>
             </div>
 
-            {(user?.email === data?.userEmail ||
-              userDetail?.role === "admin") && (
+            {(user?.primaryEmailAddress?.emailAddress === data?.userEmail ||
+              userDetail?.data?.role === "admin") && (
               <div style={{ display: "flex", gap: "5px" }}>
                 <span>
                   Online Status:{" "}
@@ -242,7 +243,7 @@ function Listing() {
                   </p>
                 </div>
               </>
-            ) : user?.email === data?.userEmail ||
+            ) : user?.primaryEmailAddress?.emailAddress === data?.userEmail ||
               userDetail?.data?.role === "admin" ? (
               <>
                 <button
@@ -288,7 +289,9 @@ function Listing() {
               opened={modalOpened}
               setOpened={setModalOpened}
               listingId={id}
-              email={user?.email}
+              email={user?.primaryEmailAddress?.emailAddress}
+              amount={amount}
+              user={user}
             />
           </div>
 

@@ -234,7 +234,7 @@ export const validatePaymentAmount = (amount) => {
 const CURRENCY = "usd";
 
 export const createPaymentIntent = asyncHandler(async (req, res) => {
-  const { paymentMethodId, amount, userId, ipAddress } = req.body;
+  const { paymentMethodId, amount, userId } = req.body;
 
   try {
     // Validate input
@@ -248,42 +248,58 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
     // Convert amount to cents
     const amountInCents = Math.round(parseFloat(amount) * 100);
 
-    // Create payment intent
+    // Create payment intent with automatic confirmation
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountInCents,
       currency: CURRENCY,
       payment_method: paymentMethodId,
-      confirmation_method: "manual",
+      confirmation_method: "automatic",
       confirm: true,
       metadata: {
         userId,
-        ipAddress,
       },
       return_url: process.env.PAYMENT_SUCCESS_URL,
       payment_method_types: ["card"],
+      use_stripe_sdk: true, // Enable Stripe.js for handling authentication
     });
+
+    // Enhanced response with more payment status details
+    const responseData = {
+      paymentIntentId: paymentIntent.id,
+      amount: paymentIntent.amount,
+      currency: paymentIntent.currency,
+      status: paymentIntent.status,
+      clientSecret: paymentIntent.client_secret,
+      requiresAction: paymentIntent.status === "requires_action",
+      nextAction: paymentIntent.next_action,
+    };
 
     res.json({
       success: true,
-      message: "Payment intent created",
-      data: {
-        paymentIntentId: paymentIntent.id,
-        amount: paymentIntent.amount,
-        currency: paymentIntent.currency,
-        status: paymentIntent.status,
-        clientSecret: paymentIntent.client_secret,
-      },
+      message:
+        paymentIntent.status === "succeeded"
+          ? "Payment completed successfully"
+          : "Payment requires additional action",
+      data: responseData,
     });
   } catch (error) {
     console.error("Payment intent creation error:", error);
 
+    // Enhanced error handling
     const statusCode = error.type === "StripeInvalidRequestError" ? 400 : 500;
+    const errorMessage =
+      error.code === "card_declined"
+        ? `Card was declined: ${error.message}`
+        : "Payment initialization failed";
+
     res.status(statusCode).json({
       success: false,
-      message: "Payment initialization failed",
+      message: errorMessage,
       error: {
         code: error.code || "payment_error",
         message: error.message,
+        decline_code: error.decline_code,
+        payment_method: error.payment_method,
       },
     });
   }
@@ -301,6 +317,7 @@ export const getPaymentStatus = asyncHandler(async (req, res) => {
     }
 
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    console.log(paymentIntent)
 
     res.json({
       success: true,
@@ -663,7 +680,6 @@ export const createUser = asyncHandler(async (req, res) => {
 });
 // User Management Handlers ==============================================
 
-
 export const editUserDetails = asyncHandler(async (req, res) => {
   const { email } = req.params;
   let updates = req.body;
@@ -674,8 +690,8 @@ export const editUserDetails = asyncHandler(async (req, res) => {
       Object.entries(updates)
         // Convert empty strings to undefined
         .map(([key, value]) => [
-          key, 
-          typeof value === 'string' && value.trim() === '' ? undefined : value
+          key,
+          typeof value === "string" && value.trim() === "" ? undefined : value,
         ])
         // Remove undefined values to avoid overwriting with undefined
         .filter(([_, value]) => value !== undefined)
@@ -684,10 +700,10 @@ export const editUserDetails = asyncHandler(async (req, res) => {
 
   try {
     // First validate required fields if name is being updated
-    if ('name' in updates) {
-      if (!updates.name || typeof updates.name !== 'string') {
-        return res.status(400).json({ 
-          message: "Name is required and must be a non-empty string" 
+    if ("name" in updates) {
+      if (!updates.name || typeof updates.name !== "string") {
+        return res.status(400).json({
+          message: "Name is required and must be a non-empty string",
         });
       }
     }
@@ -695,10 +711,10 @@ export const editUserDetails = asyncHandler(async (req, res) => {
     const user = await User.findOneAndUpdate(
       { email },
       { $set: updates },
-      { 
+      {
         new: true,
         runValidators: true,
-        context: 'query'
+        context: "query",
       }
     ).select("-password");
 
@@ -709,19 +725,19 @@ export const editUserDetails = asyncHandler(async (req, res) => {
     return res.json(user);
   } catch (error) {
     console.error("User update error:", error);
-    
+
     // Handle specific error cases
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({ 
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
         message: "Validation failed",
-        details: Object.values(error.errors).map(err => err.message)
+        details: Object.values(error.errors).map((err) => err.message),
       });
     }
-    
+
     if (error.code === 11000) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Duplicate field value",
-        field: Object.keys(error.keyPattern)[0]
+        field: Object.keys(error.keyPattern)[0],
       });
     }
 
@@ -946,7 +962,6 @@ export const fetchAllSubscriptions = asyncHandler(async (req, res) => {
   }
 });
 
-
 export const userFavourites = asyncHandler(async (req, res) => {
   const { email } = req.body;
   const { resId } = req.params;
@@ -1003,66 +1018,92 @@ export const bookVisit = asyncHandler(async (req, res) => {
     paymentReference,
     phone,
     provider,
+    amount
   } = req.body;
   const { id: propertyId } = req.params;
 
-  try {
-    // ============= INPUT VALIDATION =============
-    // Date/time validation
-    if (
-      !dayjs(date, "DD/MM/YYYY", true).isValid() ||
-      !dayjs(time, "HH:mm", true).isValid()
-    ) {
+  // ============= INPUT VALIDATION =============
+  // Check required fields
+  if (!email || !date || !time || !paymentMethod || !propertyId) {
+    return res.status(400).json({
+      success: false,
+      code: "MISSING_REQUIRED_FIELDS",
+      message: "Email, date, time, payment method and property ID are required",
+    });
+  }
+
+  // Validate date format and ensure it's in the future
+  const bookingDate = dayjs(date, "DD/MM/YYYY", true);
+  if (!bookingDate.isValid()) {
+    return res.status(400).json({
+      success: false,
+      code: "INVALID_DATE",
+      message: "Invalid date format. Use DD/MM/YYYY",
+    });
+  }
+  if (bookingDate.isBefore(dayjs(), "day")) {
+    return res.status(400).json({
+      success: false,
+      code: "PAST_DATE",
+      message: "Booking date cannot be in the past",
+    });
+  }
+
+  // Validate time format
+  if (!dayjs(time, "HH:mm", true).isValid()) {
+    return res.status(400).json({
+      success: false,
+      code: "INVALID_TIME",
+      message: "Invalid time format. Use HH:mm",
+    });
+  }
+
+  // Validate payment method
+  const validPaymentMethods = [
+    "pay_on_arrival",
+    "stripe",
+    "paypal",
+    "paystack",
+    "mobile_money",
+  ];
+  if (!validPaymentMethods.includes(paymentMethod)) {
+    return res.status(400).json({
+      success: false,
+      code: "INVALID_PAYMENT_METHOD",
+      message: `Supported methods: ${validPaymentMethods.join(", ")}`,
+    });
+  }
+
+  // Mobile money specific validation
+  if (paymentMethod === "mobile_money") {
+    if (!phone || !provider) {
       return res.status(400).json({
         success: false,
-        code: "INVALID_DATETIME",
-        message: "Invalid date/time format. Use DD/MM/YYYY and HH:mm",
+        code: "MISSING_MOBILE_DETAILS",
+        message: "Phone and provider required for mobile money",
       });
     }
 
-    // Payment method validation
-    const validPaymentMethods = new Set([
-      "pay_on_arrival",
-      "stripe",
-      "paypal",
-      "paystack",
-      "mobile_money",
+    if (!validatePhoneNumber(phone, provider)) {
+      return res.status(400).json({
+        success: false,
+        code: "INVALID_PHONE",
+        message: "Invalid phone number for selected provider",
+      });
+    }
+  }
+
+  try {
+    // ============= DATA VERIFICATION =============
+    const [property, user] = await Promise.all([
+      Residency.findById(propertyId).select(
+        "title userEmail images"
+      ),
+      User.findOne({ email }).select(
+        "bookedVisit email name telephone address"
+      ),
     ]);
 
-    if (!validPaymentMethods.has(paymentMethod)) {
-      return res.status(400).json({
-        success: false,
-        code: "INVALID_PAYMENT_METHOD",
-        message: `Supported methods: ${Array.from(validPaymentMethods).join(
-          ", "
-        )}`,
-      });
-    }
-
-    // Mobile money specific validation
-    if (paymentMethod === "mobile_money") {
-      if (!phone || !provider) {
-        return res.status(400).json({
-          success: false,
-          code: "MISSING_MOBILE_DETAILS",
-          message: "Phone and provider required for mobile money",
-        });
-      }
-
-      if (!validatePhoneNumber(phone, provider)) {
-        return res.status(400).json({
-          success: false,
-          code: "INVALID_PHONE",
-          message: "Invalid phone number for selected provider",
-        });
-      }
-    }
-
-    // ============= DATA VERIFICATION =============
-    // Property verification
-    const property = await Residency.findById(propertyId).select(
-      "title userEmail images visitingFee"
-    );
     if (!property) {
       return res.status(404).json({
         success: false,
@@ -1071,10 +1112,6 @@ export const bookVisit = asyncHandler(async (req, res) => {
       });
     }
 
-    // User verification
-    const user = await User.findOne({ email }).select(
-      "bookedVisit name telephone address"
-    );
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -1083,7 +1120,7 @@ export const bookVisit = asyncHandler(async (req, res) => {
       });
     }
 
-    // Existing booking check
+    // Check for existing active booking
     const hasActiveBooking = user.bookedVisit.some(
       (b) => b.propertyId.equals(propertyId) && b.bookingStatus === "active"
     );
@@ -1098,7 +1135,7 @@ export const bookVisit = asyncHandler(async (req, res) => {
     // ============= PAYMENT PROCESSING =============
     let paymentStatus = "pending";
     let paymentDetails = {};
-    const visitingFee = property.visitingFee || 0;
+    const paymentAmount = amount || 0;  // Fixed line
 
     if (paymentMethod !== "pay_on_arrival") {
       if (!paymentReference) {
@@ -1112,28 +1149,30 @@ export const bookVisit = asyncHandler(async (req, res) => {
       try {
         switch (paymentMethod) {
           case "stripe":
-            const paymentIntent = await stripe.paymentIntents.retrieve(
-              paymentReference
-            );
-            if (paymentIntent.status !== "succeeded") {
-              throw new Error("Payment not completed");
+            const pi = await stripe.paymentIntents.retrieve(paymentReference, {
+              expand: ["charges.data.balance_transaction"],
+            });
+    
+            if (pi.status !== "succeeded") {
+              throw new Error(`Payment not completed: ${pi.status}`);
             }
-            paymentDetails = {
-              amount: paymentIntent.amount / 100,
-              currency: paymentIntent.currency,
-              paymentId: paymentIntent.id,
-              charges: paymentIntent.charges.data.map((c) => ({
-                id: c.id,
-                amount: c.amount,
-                receipt_url: c.receipt_url,
-              })),
-            };
+    
+            if (pi.amount / 100 !== paymentAmount) {  // Changed to paymentAmount
+              throw new Error(
+                `Amount mismatch: Paid ${pi.amount / 100} vs Expected ${paymentAmount}`
+              );
+            }
             break;
 
           case "paypal":
             const order = await getPayPalOrderDetails(paymentReference);
             if (order.status !== "COMPLETED") {
               throw new Error("Payment not completed");
+            }
+            if (
+              parseFloat(order.purchase_units[0].amount.value) !== amount
+            ) {
+              throw new Error("Payment amount doesn't match visiting fee");
             }
             paymentDetails = {
               amount: order.purchase_units[0].amount.value,
@@ -1146,12 +1185,19 @@ export const bookVisit = asyncHandler(async (req, res) => {
           case "paystack":
           case "mobile_money":
             const verification = await axios.get(
-              `${PAYSTACK_BASE_URL}/transaction/verify/${paymentReference}`,
-              { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } }
+              `${process.env.PAYSTACK_BASE_URL}/transaction/verify/${paymentReference}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+                },
+              }
             );
 
             if (verification.data.data.status !== "success") {
               throw new Error("Payment verification failed");
+            }
+            if (verification.data.data.amount / 100 !== amount) {
+              throw new Error("Payment amount doesn't match visiting fee");
             }
             paymentDetails = {
               amount: verification.data.data.amount / 100,
@@ -1176,7 +1222,7 @@ export const bookVisit = asyncHandler(async (req, res) => {
 
     // ============= BOOKING CREATION =============
     const bookingNumber = await generateUniqueBookingNumber();
-    const formattedDate = dayjs(date, "DD/MM/YYYY").format("DD/MM/YYYY");
+    const formattedDate = bookingDate.format("DD/MM/YYYY");
     const formattedTime = dayjs(time, "HH:mm").format("HH:mm");
 
     const newBooking = {
@@ -1191,7 +1237,7 @@ export const bookVisit = asyncHandler(async (req, res) => {
         status: paymentStatus,
         reference: paymentReference,
         details: paymentDetails,
-        fee: visitingFee,
+        fee: amount,
         currency: paymentDetails.currency || "USD",
       },
       metadata: {
@@ -1227,18 +1273,31 @@ export const bookVisit = asyncHandler(async (req, res) => {
       time: formattedTime,
       paymentMethod: paymentMethod.toUpperCase(),
       paymentStatus,
-      amount: visitingFee,
+      amount: amount,
       currency: newBooking.payment.currency,
       propertyLink: `${process.env.FRONTEND_URL}/properties/${propertyId}`,
       supportEmail: process.env.SUPPORT_EMAIL,
       year: new Date().getFullYear(),
     };
 
-    // Parallel email sending
+    // Safe email sending with error handling
+    const sendEmailSafely = async (emailFn, recipient) => {
+      try {
+        if (typeof emailFn === "function") {
+          await emailFn(recipient, emailData);
+        }
+      } catch (emailError) {
+        console.error(`Failed to send email to ${recipient}:`, emailError);
+      }
+    };
+
     await Promise.all([
-      getConfirmationEmail(user.email, emailData),
-      owner?.email && getOwnerNotificationEmail(owner.email, emailData),
-      getOwnerNotificationEmail(admins, emailData),
+      sendEmailSafely(getConfirmationEmail, user.email),
+      owner?.email && sendEmailSafely(getOwnerNotificationEmail, owner.email),
+      ...admins.map(
+        (admin) =>
+          admin.email && sendEmailSafely(getOwnerNotificationEmail, admin.email)
+      ),
     ]);
 
     // ============= FINAL RESPONSE =============
@@ -1265,7 +1324,6 @@ export const bookVisit = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error("Booking error:", error);
 
-    // Error classification
     const errorResponse = {
       success: false,
       code: "BOOKING_FAILURE",
@@ -1447,7 +1505,7 @@ export const cancelBooking = asyncHandler(async (req, res) => {
     // ============= DATA RETRIEVAL =============
     const [property, owner, admins] = await Promise.all([
       Residency.findById(propertyId)
-        .select("title userEmail images visitingFee")
+        .select("title userEmail images")
         .session(session),
       User.findOne({ email: property.userEmail })
         .select("email")

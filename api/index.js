@@ -5,7 +5,7 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import cron from 'node-cron';
 import mongoose from 'mongoose';
-import { ClerkExpressRequireAuth, createClerkClient } from '@clerk/clerk-sdk-node';
+
 
 // Routes
 import userRoute from './routes/userRoute.js';

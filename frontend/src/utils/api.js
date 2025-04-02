@@ -6,6 +6,9 @@ import { toast } from "react-toastify"; // Import toast notifications for error 
 // Create an Axios instance with a base URL for API requests
 export const api = axios.create({
   baseURL: "http://localhost:5000", // Base URL for backend API requests
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 // Update your fetchUserDetails to handle token properly
 export const fetchUserDetails = async (email, token) => {
@@ -86,28 +89,30 @@ export const createUser = async (userData, token) => {
   }
 };
 // book a visit
+
+
 export const bookVisit = async ({
   date,
   time,
   listingId,
   email,
   token,
+  userId,
   paymentMethod,
-  paymentStatus,
-  paymentReference, // Include payment reference
+  paymentReference,
+  amount
 }) => {
   try {
     const response = await api.post(
       `/api/user/bookVisit/${listingId}`,
       {
         email,
-        id: listingId,
-        date: dayjs(date).format("YYYY-MM-DD"),
+        date: dayjs(date).format("DD/MM/YYYY"),
         time: dayjs(time).format("HH:mm"),
-        visitStatus: "pending",
-        paymentStatus,
+        userId, // Include userId
         paymentMethod,
-        paymentReference, // Pass payment reference for Paystack
+        paymentReference,
+        amount
       },
       {
         headers: {
@@ -116,16 +121,18 @@ export const bookVisit = async ({
       }
     );
 
-    if (response.status === 200) {
-      return response;
+    if (response.status === 201) {
+      return response.data;
     } else {
-      throw new Error("Failed to book visit");
+      throw new Error(response.data?.message || "Failed to book visit");
     }
   } catch (error) {
     console.error("Booking error:", error);
+    toast.error(error.response?.data?.message || error.message || "Booking failed");
     throw error;
   }
 };
+
 // cancel Booking
 export const cancelBooking = async (id, email, token) => {
   try {

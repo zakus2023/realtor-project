@@ -56,178 +56,188 @@ const transporter = nodemailer.createTransport({
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+console.log("Using Paystack Secret Key:", PAYSTACK_SECRET_KEY);
+
 const PAYSTACK_BASE_URL = process.env.PAYSTACK_BASE_URL;
 
 // paypal
-class PayPalError extends Error {
-  constructor(message, originalError) {
-    super(message);
-    this.name = "PayPalError";
-    this.originalError = originalError;
-  }
-}
+// class PayPalError extends Error {
+//   constructor(message, originalError) {
+//     super(message);
+//     this.name = "PayPalError";
+//     this.originalError = originalError;
+//   }
+// }
 
-class PayPalVerificationError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "PayPalVerificationError";
-  }
-}
+// class PayPalVerificationError extends Error {
+//   constructor(message) {
+//     super(message);
+//     this.name = "PayPalVerificationError";
+//   }
+// }
 
-const CURRENCY_CODE = "USD"; // Default currency
+// const CURRENCY_CODE = "USD"; // Default currency
 
-// 1. Payment Order Creation
-export const createPayPalOrder = async (amount, currency = CURRENCY_CODE) => {
-  try {
-    const client = getPayPalClient();
-    const request = new paypal.orders.OrdersCreateRequest();
+// // 1. Payment Order Creation
+// export const createPayPalOrder = async (amount, currency = CURRENCY_CODE) => {
+//   try {
+//     const client = getPayPalClient();
+//     const request = new paypal.orders.OrdersCreateRequest();
 
-    request.requestBody({
-      intent: "CAPTURE",
-      purchase_units: [
-        {
-          amount: {
-            currency_code: currency,
-            value: parseFloat(amount).toFixed(2),
-          },
-        },
-      ],
-      application_context: {
-        brand_name: process.env.APP_NAME,
-        user_action: "PAY_NOW",
-        return_url: process.env.PAYPAL_RETURN_URL,
-        cancel_url: process.env.PAYPAL_CANCEL_URL,
-      },
-    });
+//     request.requestBody({
+//       intent: "CAPTURE",
+//       purchase_units: [
+//         {
+//           amount: {
+//             currency_code: currency,
+//             value: parseFloat(amount).toFixed(2),
+//           },
+//         },
+//       ],
+//       application_context: {
+//         brand_name: process.env.APP_NAME,
+//         user_action: "PAY_NOW",
+//         return_url: process.env.PAYPAL_RETURN_URL,
+//         cancel_url: process.env.PAYPAL_CANCEL_URL,
+//       },
+//     });
 
-    const response = await client.execute(request);
-    return {
-      id: response.result.id,
-      status: response.result.status,
-      links: response.result.links,
-    };
-  } catch (error) {
-    throw new PayPalError("Failed to create PayPal order", error);
-  }
-};
+//     const response = await client.execute(request);
+//     return {
+//       id: response.result.id,
+//       status: response.result.status,
+//       links: response.result.links,
+//     };
+//   } catch (error) {
+//     throw new PayPalError("Failed to create PayPal order", error);
+//   }
+// };
 
-// 2. Payment Capture
-export const capturePayPalPayment = async (orderId) => {
-  try {
-    const client = getPayPalClient();
-    const request = new paypal.orders.OrdersCaptureRequest(orderId);
-    request.requestBody({}); // Required empty body
+// // 2. Payment Capture
+// export const capturePayPalPayment = async (orderId) => {
+//   try {
+//     const client = getPayPalClient();
+//     const request = new paypal.orders.OrdersCaptureRequest(orderId);
+//     request.requestBody({}); // Required empty body
 
-    const response = await client.execute(request);
-    const capture = response.result.purchase_units[0].payments.captures[0];
+//     const response = await client.execute(request);
+//     const capture = response.result.purchase_units[0].payments.captures[0];
 
-    return {
-      status: capture.status,
-      amount: capture.amount.value,
-      currency: capture.amount.currency_code,
-      captureId: capture.id,
-      createTime: capture.create_time,
-    };
-  } catch (error) {
-    throw new PayPalError("Failed to capture PayPal payment", error);
-  }
-};
+//     return {
+//       status: capture.status,
+//       amount: capture.amount.value,
+//       currency: capture.amount.currency_code,
+//       captureId: capture.id,
+//       createTime: capture.create_time,
+//     };
+//   } catch (error) {
+//     throw new PayPalError("Failed to capture PayPal payment", error);
+//   }
+// };
 
-// 3. Webhook Verification
-export const verifyWebhookSignature = async (webhookBody, headers) => {
-  try {
-    const client = getPayPalClient();
-    const request = new paypal.notifications.WebhooksVerifySignatureRequest();
+// // 3. Webhook Verification
+// export const verifyWebhookSignature = async (webhookBody, headers) => {
+//   try {
+//     const client = getPayPalClient();
+//     const request = new paypal.notifications.WebhooksVerifySignatureRequest();
 
-    request.requestBody({
-      transmission_id: headers["paypal-transmission-id"],
-      transmission_time: headers["paypal-transmission-time"],
-      cert_url: headers["paypal-cert-url"],
-      auth_algo: headers["paypal-auth-algo"],
-      transmission_sig: headers["paypal-transmission-sig"],
-      webhook_id: process.env.PAYPAL_WEBHOOK_ID,
-      webhook_event: webhookBody,
-    });
+//     request.requestBody({
+//       transmission_id: headers["paypal-transmission-id"],
+//       transmission_time: headers["paypal-transmission-time"],
+//       cert_url: headers["paypal-cert-url"],
+//       auth_algo: headers["paypal-auth-algo"],
+//       transmission_sig: headers["paypal-transmission-sig"],
+//       webhook_id: process.env.PAYPAL_WEBHOOK_ID,
+//       webhook_event: webhookBody,
+//     });
 
-    const response = await client.execute(request);
-    if (response.result.verification_status !== "SUCCESS") {
-      throw new PayPalVerificationError("Invalid webhook signature");
-    }
+//     const response = await client.execute(request);
+//     if (response.result.verification_status !== "SUCCESS") {
+//       throw new PayPalVerificationError("Invalid webhook signature");
+//     }
 
-    return true;
-  } catch (error) {
-    if (error instanceof PayPalVerificationError) throw error;
-    throw new PayPalError("Webhook verification failed", error);
-  }
-};
+//     return true;
+//   } catch (error) {
+//     if (error instanceof PayPalVerificationError) throw error;
+//     throw new PayPalError("Webhook verification failed", error);
+//   }
+// };
 
-// 4. Refund Processing
-export const refundPayPalPayment = async (captureId, amount = null) => {
-  try {
-    const client = getPayPalClient();
-    const request = new paypal.payments.CapturesRefundRequest(captureId);
+// // 4. Refund Processing
+// export const refundPayPalPayment = async (captureId, amount = null) => {
+//   try {
+//     const client = getPayPalClient();
+//     const request = new paypal.payments.CapturesRefundRequest(captureId);
 
-    request.requestBody({
-      amount: amount
-        ? {
-            value: parseFloat(amount).toFixed(2),
-            currency_code: CURRENCY_CODE,
-          }
-        : undefined,
-      note_to_payer: "Refund initiated",
-    });
+//     request.requestBody({
+//       amount: amount
+//         ? {
+//             value: parseFloat(amount).toFixed(2),
+//             currency_code: CURRENCY_CODE,
+//           }
+//         : undefined,
+//       note_to_payer: "Refund initiated",
+//     });
 
-    const response = await client.execute(request);
-    return {
-      refundId: response.result.id,
-      status: response.result.status,
-      amount: response.result.amount?.value || amount,
-    };
-  } catch (error) {
-    throw new PayPalError("Failed to process refund", error);
-  }
-};
+//     const response = await client.execute(request);
+//     return {
+//       refundId: response.result.id,
+//       status: response.result.status,
+//       amount: response.result.amount?.value || amount,
+//     };
+//   } catch (error) {
+//     throw new PayPalError("Failed to process refund", error);
+//   }
+// };
 
-// 5. Order Details
-export const getOrderDetails = async (orderId) => {
-  try {
-    const client = getPayPalClient();
-    const request = new paypal.orders.OrdersGetRequest(orderId);
+// // 5. Order Details
+// export const getOrderDetails = async (orderId) => {
+//   try {
+//     const client = getPayPalClient();
+//     const request = new paypal.orders.OrdersGetRequest(orderId);
 
-    const response = await client.execute(request);
-    return {
-      id: response.result.id,
-      status: response.result.status,
-      createTime: response.result.create_time,
-      amount: response.result.purchase_units[0].amount,
-      payer: response.result.payer,
-      links: response.result.links,
-    };
-  } catch (error) {
-    throw new PayPalError("Failed to fetch order details", error);
-  }
-};
+//     const response = await client.execute(request);
+//     return {
+//       id: response.result.id,
+//       status: response.result.status,
+//       createTime: response.result.create_time,
+//       amount: response.result.purchase_units[0].amount,
+//       payer: response.result.payer,
+//       links: response.result.links,
+//     };
+//   } catch (error) {
+//     throw new PayPalError("Failed to fetch order details", error);
+//   }
+// };
 
-// 6. Webhook Event Parsing
-export const getPayPalEventType = (webhookBody) => {
-  try {
-    return webhookBody.event_type;
-  } catch (error) {
-    throw new PayPalError("Invalid webhook event format", error);
-  }
-};
+// // 6. Webhook Event Parsing
+// export const getPayPalEventType = (webhookBody) => {
+//   try {
+//     return webhookBody.event_type;
+//   } catch (error) {
+//     throw new PayPalError("Invalid webhook event format", error);
+//   }
+// };
 
-// 7. Validate Currency
-export const validateCurrency = (currency) => {
-  const allowedCurrencies = new Set(["USD", "EUR", "GBP", "CAD", "AUD"]); // Add more as needed
-  return allowedCurrencies.has(currency.toUpperCase());
-};
+// // 7. Validate Currency
+// export const validateCurrency = (currency) => {
+//   const allowedCurrencies = new Set(["USD", "EUR", "GBP", "CAD", "AUD"]); // Add more as needed
+//   return allowedCurrencies.has(currency.toUpperCase());
+// };
 
-// 8. Payment Validation
-export const validatePaymentAmount = (amount) => {
-  const amountValue = parseFloat(amount);
-  return !isNaN(amountValue) && amountValue > 0;
-};
+// // 8. Payment Validation
+// export const validatePaymentAmount = (amount) => {
+//   const amountValue = parseFloat(amount);
+//   return !isNaN(amountValue) && amountValue > 0;
+// };
+
+// PayPal client setup
+const paypalClient = new paypal.core.PayPalHttpClient(
+  new paypal.core.SandboxEnvironment(
+    process.env.PAYPAL_CLIENT_ID, // Replace with your PayPal client ID
+    process.env.PAYPAL_SECRET // Replace with your PayPal secret
+  )
+);
 
 // stripe payment
 
@@ -317,7 +327,7 @@ export const getPaymentStatus = asyncHandler(async (req, res) => {
     }
 
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    console.log(paymentIntent)
+    console.log(paymentIntent);
 
     res.json({
       success: true,
@@ -409,6 +419,7 @@ const validatePhoneNumber = (phone, provider) => {
 
 export const payWithMoMo = asyncHandler(async (req, res) => {
   const { email, amount, phone, provider } = req.body;
+  console.log(req.body)
 
   try {
     // Validate input
@@ -537,60 +548,62 @@ export const verifyMoMoPayment = asyncHandler(async (req, res) => {
 });
 
 export const paystackWebhook = asyncHandler(async (req, res) => {
-  const signature = req.headers["x-paystack-signature"];
-  const hash = crypto
-    .createHmac("sha512", PAYSTACK_SECRET_KEY)
-    .update(JSON.stringify(req.body))
-    .digest("hex");
+  // IMPORTANT: Get the raw body first
+  const rawBody = JSON.stringify(req.body);
+  
+  // Verify signature
+  const secret = PAYSTACK_SECRET_KEY;
+  const signature = crypto
+    .createHmac('sha512', secret)
+    .update(rawBody)
+    .digest('hex');
 
-  if (hash !== signature) {
-    console.warn("Invalid webhook signature");
-    return res.status(401).json({ status: "Unauthorized" });
+  // Debug logging
+  console.log('Computed Signature:', signature);
+  console.log('Received Signature:', req.headers['x-paystack-signature']);
+  console.log('Event Type:', req.body?.event);
+
+  if (signature !== req.headers['x-paystack-signature']) {
+    console.error('❌ Signature verification failed');
+    return res.status(401).send('Unauthorized - Invalid signature');
   }
 
-  const event = req.body;
-  if (event.event === "charge.success") {
-    try {
-      const { reference } = event.data;
-      const userEmail = event.data.customer?.email;
+  // Immediately respond to Paystack
+  res.status(200).send('Webhook received');
 
-      // Verify transaction
-      const verification = await axios.get(
-        `${PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
-        { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } }
+  // Process event asynchronously
+  try {
+    const event = req.body;
+    
+    if (event.event === "charge.success") {
+      const { reference, customer } = event.data;
+      console.log('Processing successful payment for reference:', reference);
+
+      // Update user booking
+      const updatedUser = await User.findOneAndUpdate(
+        { 
+          email: customer.email,
+          "bookedVisit.payment.reference": reference 
+        },
+        { 
+          $set: { 
+            "bookedVisit.$.payment.status": "paid",
+            "bookedVisit.$.visitStatus": "confirmed"
+          } 
+        },
+        { new: true }
       );
 
-      if (verification.data.data.status === "success") {
-        const user = await User.findOne({ email: userEmail });
-        if (!user) {
-          console.warn(`User not found for email: ${userEmail}`);
-          return res.sendStatus(200);
-        }
-
-        // Update booking status
-        const bookingIndex = user.bookedVisit.findIndex(
-          (b) => b.paymentReference === reference
-        );
-
-        if (bookingIndex === -1) {
-          console.warn(`Booking not found for reference: ${reference}`);
-          return res.sendStatus(200);
-        }
-
-        user.bookedVisit[bookingIndex].paymentStatus = "paid";
-        user.bookedVisit[bookingIndex].verifiedAt = new Date();
-
-        await user.save();
-
-        console.log(`Updated booking for user: ${userEmail}`);
+      if (!updatedUser) {
+        console.error('User booking not found for reference:', reference);
+        return;
       }
-    } catch (error) {
-      console.error("Webhook processing error:", error);
-      // Log error but still return 200 to prevent retries
-    }
-  }
 
-  res.sendStatus(200);
+      console.log('✅ Booking updated successfully');
+    }
+  } catch (error) {
+    console.error('Webhook processing error:', error);
+  }
 });
 // ===============================================================================
 
@@ -1016,9 +1029,10 @@ export const bookVisit = asyncHandler(async (req, res) => {
     time,
     paymentMethod,
     paymentReference,
+    paypalOrderId,
     phone,
     provider,
-    amount
+    amount,
   } = req.body;
   const { id: propertyId } = req.params;
 
@@ -1096,9 +1110,7 @@ export const bookVisit = asyncHandler(async (req, res) => {
   try {
     // ============= DATA VERIFICATION =============
     const [property, user] = await Promise.all([
-      Residency.findById(propertyId).select(
-        "title userEmail images"
-      ),
+      Residency.findById(propertyId).select("title userEmail images"),
       User.findOne({ email }).select(
         "bookedVisit email name telephone address"
       ),
@@ -1135,7 +1147,7 @@ export const bookVisit = asyncHandler(async (req, res) => {
     // ============= PAYMENT PROCESSING =============
     let paymentStatus = "pending";
     let paymentDetails = {};
-    const paymentAmount = amount || 0;  // Fixed line
+    const paymentAmount = amount || 0; // Fixed line
 
     if (paymentMethod !== "pay_on_arrival") {
       if (!paymentReference) {
@@ -1152,34 +1164,48 @@ export const bookVisit = asyncHandler(async (req, res) => {
             const pi = await stripe.paymentIntents.retrieve(paymentReference, {
               expand: ["charges.data.balance_transaction"],
             });
-    
+
             if (pi.status !== "succeeded") {
               throw new Error(`Payment not completed: ${pi.status}`);
             }
-    
-            if (pi.amount / 100 !== paymentAmount) {  // Changed to paymentAmount
+
+            if (pi.amount / 100 !== paymentAmount) {
+              // Changed to paymentAmount
               throw new Error(
-                `Amount mismatch: Paid ${pi.amount / 100} vs Expected ${paymentAmount}`
+                `Amount mismatch: Paid ${
+                  pi.amount / 100
+                } vs Expected ${paymentAmount}`
               );
             }
             break;
 
           case "paypal":
-            const order = await getPayPalOrderDetails(paymentReference);
-            if (order.status !== "COMPLETED") {
-              throw new Error("Payment not completed");
+            if (paypalOrderId) {
+              try {
+                const request = new paypal.orders.OrdersCaptureRequest(
+                  paypalOrderId
+                );
+                request.requestBody({});
+
+                const response = await paypalClient.execute(request);
+
+                if (response.result.status !== "COMPLETED") {
+                  return res
+                    .status(400)
+                    .json({
+                      message: "PayPal payment failed. Please try again.",
+                    });
+                }
+              } catch (paypalError) {
+                console.error("PayPal payment error:", paypalError);
+                return res
+                  .status(400)
+                  .json({
+                    message: "PayPal payment failed. Please try again.",
+                  });
+              }
             }
-            if (
-              parseFloat(order.purchase_units[0].amount.value) !== amount
-            ) {
-              throw new Error("Payment amount doesn't match visiting fee");
-            }
-            paymentDetails = {
-              amount: order.purchase_units[0].amount.value,
-              currency: order.purchase_units[0].amount.currency_code,
-              captureId: order.purchase_units[0].payments.captures[0].id,
-              payer: order.payer.email_address,
-            };
+
             break;
 
           case "paystack":
@@ -1353,18 +1379,18 @@ export const bookVisit = asyncHandler(async (req, res) => {
 });
 
 // Helper: Retrieve PayPal order details
-const getPayPalOrderDetails = async (orderId) => {
-  const client = new paypal.core.PayPalHttpClient(
-    new paypal.core.SandboxEnvironment(
-      process.env.PAYPAL_CLIENT_ID,
-      process.env.PAYPAL_CLIENT_SECRET
-    )
-  );
+// const getPayPalOrderDetails = async (orderId) => {
+//   const client = new paypal.core.PayPalHttpClient(
+//     new paypal.core.SandboxEnvironment(
+//       process.env.PAYPAL_CLIENT_ID,
+//       process.env.PAYPAL_CLIENT_SECRET
+//     )
+//   );
 
-  const request = new paypal.orders.OrdersGetRequest(orderId);
-  const response = await client.execute(request);
-  return response.result;
-};
+//   const request = new paypal.orders.OrdersGetRequest(orderId);
+//   const response = await client.execute(request);
+//   return response.result;
+// };
 
 // Helper: Generate unique booking ID
 const generateUniqueBookingNumber = async () => {

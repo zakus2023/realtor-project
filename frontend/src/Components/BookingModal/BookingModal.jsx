@@ -27,15 +27,8 @@ const paypalOptions = {
   currency: "USD",
 };
 
-function BookingModal({
-  opened,
-  setOpened,
-  email,
-  listingId,
-  amount,
-  user,
-}) {
-  console.log("User: ", user);
+function BookingModal({ opened, setOpened, email, listingId, amount, user }) {
+  
   const [date, setDate] = useState(null);
   const [time, setTime] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("pay_on_arrival");
@@ -50,17 +43,18 @@ function BookingModal({
   } = useContext(UserDetailsContext);
 
   const { mutate, isLoading } = useMutation({
-    mutationFn: ({ paymentMethod, paymentReference }) =>
+    mutationFn: ({ paymentMethod, paymentReference, paypalOrderId }) =>
       bookVisit({
         date,
         time,
         listingId,
         email,
         token,
+        paypalOrderId,
         userId: user?.id, // Ensure userId is included
         paymentMethod,
         paymentReference,
-        amount
+        amount,
       }),
     onSuccess: (data) => handleBookingSuccess(data),
     onError: (error) => {
@@ -107,7 +101,7 @@ function BookingModal({
   // In BookingModal.js
   const handlePaymentSuccess = (method, reference) => {
     setIsProcessingPayment(true);
-    
+
     // Immediately use the reference from callback
     mutate({
       paymentMethod: method,
@@ -118,7 +112,7 @@ function BookingModal({
       email,
       token,
       userId: user?.id,
-      amount
+      amount,
     });
   };
 
@@ -132,13 +126,23 @@ function BookingModal({
       toast.error("Please select date and time");
       return;
     }
-
-    if (paymentMethod !== "pay_on_arrival" && !paymentReference) {
-      toast.error("Please complete the payment first");
-      return;
+  
+    if (paymentMethod !== "pay_on_arrival") {
+      if (paymentMethod === "paypal" && !paypalOrderId) {
+        toast.error("Please complete the PayPal payment first");
+        return;
+      }
+      if (paymentMethod !== "paypal" && !paymentReference) {
+        toast.error("Please complete the payment first");
+        return;
+      }
     }
-
-    mutate({ paymentMethod, paymentReference });
+  
+    mutate({ 
+      paymentMethod, 
+      paymentReference: paymentMethod === "paypal" ? paypalOrderId : paymentReference,
+      paypalOrderId: paymentMethod === "paypal" ? paypalOrderId : null
+    });
   };
 
   return (
@@ -213,7 +217,7 @@ function BookingModal({
                     purchase_units: [
                       {
                         amount: {
-                          value: visitingFee.toString(),
+                          value: amount.toString(),
                           currency_code: "USD",
                         },
                       },
@@ -222,6 +226,9 @@ function BookingModal({
                 }}
                 onApprove={(data, actions) => {
                   return actions.order.capture().then((details) => {
+                    // Explicitly set payment reference before success handler
+                    setPaymentReference(details.id);
+                    setPaypalOrderId(details.id);
                     handlePaymentSuccess("paypal", details.id);
                   });
                 }}
@@ -234,7 +241,7 @@ function BookingModal({
           )}
           {paymentMethod === "paystack" && (
             <PaystackPayment
-              amount={visitingFee * 100}
+              amount={amount}
               email={email}
               onSuccess={(reference) =>
                 handlePaymentSuccess("paystack", reference)

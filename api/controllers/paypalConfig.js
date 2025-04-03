@@ -3,7 +3,7 @@ import paypal from "@paypal/checkout-server-sdk";
 // Configure PayPal SDK environments
 const configureEnvironment = () => {
   const clientId = process.env.PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  const clientSecret = process.env.PAYPAL_SECRET;
 
   if (process.env.NODE_ENV === "production") {
     return new paypal.core.LiveEnvironment(clientId, clientSecret);
@@ -20,7 +20,7 @@ export const getPayPalClient = () => {
 export const validatePayPalConfig = () => {
   const requiredVars = [
     "PAYPAL_CLIENT_ID",
-    "PAYPAL_CLIENT_SECRET",
+    "PAYPAL_SECRET",
     "PAYPAL_WEBHOOK_ID"
   ];
 

@@ -6,40 +6,55 @@ import { PuffLoader } from "react-spinners";
 import PropertyCard from "../../Components/PropertyCard/PropertyCard";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { fetchUserDetails } from "../../utils/api";
-import { useAuth0 } from "@auth0/auth0-react";
 import { useQuery } from "react-query";
 import { useUser } from "@clerk/clerk-react";
 
 function Bookings() {
-  // Get the user info from Auth0
   const { user } = useUser();
-
-  // Fetch the properties from useProperties hook
   const { data: properties, isError, isLoading } = useProperties();
-
-  // Get the userDetails from the useContext (UserDetailsContext)
   const {
     userDetails: { token },
   } = useContext(UserDetailsContext);
 
-  // Fetch the user information
-  const { data: userDetail } = useQuery(
-    ["fetchUserDetails", user?.primaryEmailAddress?.emailAddress],
-    () => fetchUserDetails(user?.primaryEmailAddress?.emailAddress, token),
+  const userEmail = user?.primaryEmailAddress?.emailAddress;
+
+  const { data: userDetail, isLoading: userLoading } = useQuery(
+    ["fetchUserDetails", userEmail],
+    () => fetchUserDetails(userEmail, token),
     {
-      enabled: !!user?.primaryEmailAddress?.emailAddress && !!token, // Only run the query if user email exists
+      enabled: !!userEmail && !!token,
     }
   );
 
-  // Filter properties based on the listing IDs in the bookings
-  const bookedProperties = properties?.filter((property) =>
-    userDetail?.bookedVisit?.some(
-      (booking) =>
-        booking.propertyId === property.id &&
-        booking.visitStatus === "pending" &&
-        booking.bookingStatus === "active"
-    )
+
+  // Get all active bookings with proper null checks
+  const activeBookings = userDetail?.data?.bookedVisit?.filter(
+    (booking) =>
+      booking?.bookingStatus === "active" && 
+      booking?.visitStatus === "pending"
+  ) || [];
+
+  console.log("Active bookings:", activeBookings);
+
+  // Convert all IDs to strings for consistent comparison
+  const bookedPropertyIds = activeBookings.map((booking) => {
+    const propertyId = booking?.propertyId;
+    if (!propertyId) return null;
+    
+    // Handle both object and string ID cases
+    return typeof propertyId === 'object' 
+      ? propertyId._id?.toString() 
+      : propertyId.toString();
+  }).filter(Boolean); // Remove any null values
+
+  console.log("Booked property IDs:", bookedPropertyIds);
+
+  // Filter properties that match the booked property IDs
+  const bookedProperties = properties?.filter((property) => 
+    bookedPropertyIds.includes(property.id?.toString())
   );
+
+  console.log("Filtered booked properties:", bookedProperties);
 
   if (isError) {
     return (
@@ -49,15 +64,10 @@ function Bookings() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || userLoading) {
     return (
       <div className="wrapper flexCenter" style={{ height: "60vh" }}>
-        <PuffLoader
-          height="80"
-          width="80"
-          radius={1}
-          aria-label="puff-loading"
-        />
+        <PuffLoader height="80" width="80" radius={1} />
       </div>
     );
   }
@@ -72,7 +82,12 @@ function Bookings() {
               <PropertyCard key={i} card={card} />
             ))
           ) : (
-            <span>No Bookings Found</span>
+            <span>
+              {activeBookings.length > 0 
+                ? "Properties not found for your bookings" 
+                : "No Active Bookings Found"
+              }
+            </span>
           )}
         </div>
       </div>

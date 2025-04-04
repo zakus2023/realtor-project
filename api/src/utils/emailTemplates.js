@@ -298,3 +298,5 @@ export const getPropertyPublished = (data) => emailWrapper(`
   subject: data.emailSubject || 'Property Status Update',
   currentYear: new Date().getFullYear() 
 });
+
+

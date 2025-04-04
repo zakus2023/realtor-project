@@ -3,6 +3,7 @@ import User from "../models/user.js";
 import Residency from "../models/residency.js";
 import Subscription from "../models/subscription.js";
 import dayjs from "dayjs";
+import mongoose from "mongoose";
 import checkAndRemoveExpiredBookings from "../config/expiredBookings.js";
 import nodemailer from "nodemailer";
 import { nanoid } from "nanoid";
@@ -59,177 +60,6 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 console.log("Using Paystack Secret Key:", PAYSTACK_SECRET_KEY);
 
 const PAYSTACK_BASE_URL = process.env.PAYSTACK_BASE_URL;
-
-// paypal
-// class PayPalError extends Error {
-//   constructor(message, originalError) {
-//     super(message);
-//     this.name = "PayPalError";
-//     this.originalError = originalError;
-//   }
-// }
-
-// class PayPalVerificationError extends Error {
-//   constructor(message) {
-//     super(message);
-//     this.name = "PayPalVerificationError";
-//   }
-// }
-
-// const CURRENCY_CODE = "USD"; // Default currency
-
-// // 1. Payment Order Creation
-// export const createPayPalOrder = async (amount, currency = CURRENCY_CODE) => {
-//   try {
-//     const client = getPayPalClient();
-//     const request = new paypal.orders.OrdersCreateRequest();
-
-//     request.requestBody({
-//       intent: "CAPTURE",
-//       purchase_units: [
-//         {
-//           amount: {
-//             currency_code: currency,
-//             value: parseFloat(amount).toFixed(2),
-//           },
-//         },
-//       ],
-//       application_context: {
-//         brand_name: process.env.APP_NAME,
-//         user_action: "PAY_NOW",
-//         return_url: process.env.PAYPAL_RETURN_URL,
-//         cancel_url: process.env.PAYPAL_CANCEL_URL,
-//       },
-//     });
-
-//     const response = await client.execute(request);
-//     return {
-//       id: response.result.id,
-//       status: response.result.status,
-//       links: response.result.links,
-//     };
-//   } catch (error) {
-//     throw new PayPalError("Failed to create PayPal order", error);
-//   }
-// };
-
-// // 2. Payment Capture
-// export const capturePayPalPayment = async (orderId) => {
-//   try {
-//     const client = getPayPalClient();
-//     const request = new paypal.orders.OrdersCaptureRequest(orderId);
-//     request.requestBody({}); // Required empty body
-
-//     const response = await client.execute(request);
-//     const capture = response.result.purchase_units[0].payments.captures[0];
-
-//     return {
-//       status: capture.status,
-//       amount: capture.amount.value,
-//       currency: capture.amount.currency_code,
-//       captureId: capture.id,
-//       createTime: capture.create_time,
-//     };
-//   } catch (error) {
-//     throw new PayPalError("Failed to capture PayPal payment", error);
-//   }
-// };
-
-// // 3. Webhook Verification
-// export const verifyWebhookSignature = async (webhookBody, headers) => {
-//   try {
-//     const client = getPayPalClient();
-//     const request = new paypal.notifications.WebhooksVerifySignatureRequest();
-
-//     request.requestBody({
-//       transmission_id: headers["paypal-transmission-id"],
-//       transmission_time: headers["paypal-transmission-time"],
-//       cert_url: headers["paypal-cert-url"],
-//       auth_algo: headers["paypal-auth-algo"],
-//       transmission_sig: headers["paypal-transmission-sig"],
-//       webhook_id: process.env.PAYPAL_WEBHOOK_ID,
-//       webhook_event: webhookBody,
-//     });
-
-//     const response = await client.execute(request);
-//     if (response.result.verification_status !== "SUCCESS") {
-//       throw new PayPalVerificationError("Invalid webhook signature");
-//     }
-
-//     return true;
-//   } catch (error) {
-//     if (error instanceof PayPalVerificationError) throw error;
-//     throw new PayPalError("Webhook verification failed", error);
-//   }
-// };
-
-// // 4. Refund Processing
-// export const refundPayPalPayment = async (captureId, amount = null) => {
-//   try {
-//     const client = getPayPalClient();
-//     const request = new paypal.payments.CapturesRefundRequest(captureId);
-
-//     request.requestBody({
-//       amount: amount
-//         ? {
-//             value: parseFloat(amount).toFixed(2),
-//             currency_code: CURRENCY_CODE,
-//           }
-//         : undefined,
-//       note_to_payer: "Refund initiated",
-//     });
-
-//     const response = await client.execute(request);
-//     return {
-//       refundId: response.result.id,
-//       status: response.result.status,
-//       amount: response.result.amount?.value || amount,
-//     };
-//   } catch (error) {
-//     throw new PayPalError("Failed to process refund", error);
-//   }
-// };
-
-// // 5. Order Details
-// export const getOrderDetails = async (orderId) => {
-//   try {
-//     const client = getPayPalClient();
-//     const request = new paypal.orders.OrdersGetRequest(orderId);
-
-//     const response = await client.execute(request);
-//     return {
-//       id: response.result.id,
-//       status: response.result.status,
-//       createTime: response.result.create_time,
-//       amount: response.result.purchase_units[0].amount,
-//       payer: response.result.payer,
-//       links: response.result.links,
-//     };
-//   } catch (error) {
-//     throw new PayPalError("Failed to fetch order details", error);
-//   }
-// };
-
-// // 6. Webhook Event Parsing
-// export const getPayPalEventType = (webhookBody) => {
-//   try {
-//     return webhookBody.event_type;
-//   } catch (error) {
-//     throw new PayPalError("Invalid webhook event format", error);
-//   }
-// };
-
-// // 7. Validate Currency
-// export const validateCurrency = (currency) => {
-//   const allowedCurrencies = new Set(["USD", "EUR", "GBP", "CAD", "AUD"]); // Add more as needed
-//   return allowedCurrencies.has(currency.toUpperCase());
-// };
-
-// // 8. Payment Validation
-// export const validatePaymentAmount = (amount) => {
-//   const amountValue = parseFloat(amount);
-//   return !isNaN(amountValue) && amountValue > 0;
-// };
 
 // PayPal client setup
 const paypalClient = new paypal.core.PayPalHttpClient(
@@ -419,7 +249,7 @@ const validatePhoneNumber = (phone, provider) => {
 
 export const payWithMoMo = asyncHandler(async (req, res) => {
   const { email, amount, phone, provider } = req.body;
-  console.log(req.body)
+  console.log(req.body);
 
   try {
     // Validate input
@@ -550,59 +380,59 @@ export const verifyMoMoPayment = asyncHandler(async (req, res) => {
 export const paystackWebhook = asyncHandler(async (req, res) => {
   // IMPORTANT: Get the raw body first
   const rawBody = JSON.stringify(req.body);
-  
+
   // Verify signature
   const secret = PAYSTACK_SECRET_KEY;
   const signature = crypto
-    .createHmac('sha512', secret)
+    .createHmac("sha512", secret)
     .update(rawBody)
-    .digest('hex');
+    .digest("hex");
 
   // Debug logging
-  console.log('Computed Signature:', signature);
-  console.log('Received Signature:', req.headers['x-paystack-signature']);
-  console.log('Event Type:', req.body?.event);
+  console.log("Computed Signature:", signature);
+  console.log("Received Signature:", req.headers["x-paystack-signature"]);
+  console.log("Event Type:", req.body?.event);
 
-  if (signature !== req.headers['x-paystack-signature']) {
-    console.error('❌ Signature verification failed');
-    return res.status(401).send('Unauthorized - Invalid signature');
+  if (signature !== req.headers["x-paystack-signature"]) {
+    console.error("❌ Signature verification failed");
+    return res.status(401).send("Unauthorized - Invalid signature");
   }
 
   // Immediately respond to Paystack
-  res.status(200).send('Webhook received');
+  res.status(200).send("Webhook received");
 
   // Process event asynchronously
   try {
     const event = req.body;
-    
+
     if (event.event === "charge.success") {
       const { reference, customer } = event.data;
-      console.log('Processing successful payment for reference:', reference);
+      console.log("Processing successful payment for reference:", reference);
 
       // Update user booking
       const updatedUser = await User.findOneAndUpdate(
-        { 
+        {
           email: customer.email,
-          "bookedVisit.payment.reference": reference 
+          "bookedVisit.payment.reference": reference,
         },
-        { 
-          $set: { 
+        {
+          $set: {
             "bookedVisit.$.payment.status": "paid",
-            "bookedVisit.$.visitStatus": "confirmed"
-          } 
+            "bookedVisit.$.visitStatus": "confirmed",
+          },
         },
         { new: true }
       );
 
       if (!updatedUser) {
-        console.error('User booking not found for reference:', reference);
+        console.error("User booking not found for reference:", reference);
         return;
       }
 
-      console.log('✅ Booking updated successfully');
+      console.log("✅ Booking updated successfully");
     }
   } catch (error) {
-    console.error('Webhook processing error:', error);
+    console.error("Webhook processing error:", error);
   }
 });
 // ===============================================================================
@@ -1190,19 +1020,15 @@ export const bookVisit = asyncHandler(async (req, res) => {
                 const response = await paypalClient.execute(request);
 
                 if (response.result.status !== "COMPLETED") {
-                  return res
-                    .status(400)
-                    .json({
-                      message: "PayPal payment failed. Please try again.",
-                    });
+                  return res.status(400).json({
+                    message: "PayPal payment failed. Please try again.",
+                  });
                 }
               } catch (paypalError) {
                 console.error("PayPal payment error:", paypalError);
-                return res
-                  .status(400)
-                  .json({
-                    message: "PayPal payment failed. Please try again.",
-                  });
+                return res.status(400).json({
+                  message: "PayPal payment failed. Please try again.",
+                });
               }
             }
 
@@ -1306,25 +1132,61 @@ export const bookVisit = asyncHandler(async (req, res) => {
       year: new Date().getFullYear(),
     };
 
-    // Safe email sending with error handling
-    const sendEmailSafely = async (emailFn, recipient) => {
+    // Enhanced email sending with proper error handling
+    const sendBookingEmail = async (recipient, templateFn, subject) => {
+      if (!recipient) return;
+
       try {
-        if (typeof emailFn === "function") {
-          await emailFn(recipient, emailData);
-        }
+        const emailContent = templateFn(emailData);
+
+        await transporter.sendMail({
+          from: process.env.NOREPLY_EMAIL,
+          to: recipient,
+          subject: subject,
+          html: emailContent,
+          text: stripHtml(emailContent).result,
+        });
+
+        console.log(`Booking email sent to ${recipient}`);
       } catch (emailError) {
-        console.error(`Failed to send email to ${recipient}:`, emailError);
+        console.error(
+          `Failed to send booking email to ${recipient}:`,
+          emailError
+        );
+        // Consider logging this to a monitoring service
       }
     };
 
+    // Send emails in parallel with proper error handling
     await Promise.all([
-      sendEmailSafely(getConfirmationEmail, user.email),
-      owner?.email && sendEmailSafely(getOwnerNotificationEmail, owner.email),
-      ...admins.map(
-        (admin) =>
-          admin.email && sendEmailSafely(getOwnerNotificationEmail, admin.email)
+      sendBookingEmail(
+        user.email,
+        getConfirmationEmail,
+        `Your Booking Confirmation #${bookingNumber}`
+      ),
+      owner?.email &&
+        sendBookingEmail(
+          owner.email,
+          getOwnerNotificationEmail,
+          `New Booking for ${property.title}`
+        ),
+      ...admins.map((admin) =>
+        sendBookingEmail(
+          admin.email,
+          getOwnerNotificationEmail,
+          `New Booking Notification #${bookingNumber}`
+        )
       ),
     ]);
+
+    // Optional: Send to additional stakeholders if needed
+    if (process.env.BOOKING_NOTIFICATION_EMAIL) {
+      await sendBookingEmail(
+        process.env.BOOKING_NOTIFICATION_EMAIL,
+        getOwnerNotificationEmail,
+        `[System] New Booking #${bookingNumber}`
+      );
+    }
 
     // ============= FINAL RESPONSE =============
     res.status(201).json({
@@ -1444,7 +1306,7 @@ export const cancelBooking = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    // ============= INPUT VALIDATION =============
+    // Validate email format
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       await session.abortTransaction();
       return res.status(400).json({
@@ -1454,29 +1316,26 @@ export const cancelBooking = asyncHandler(async (req, res) => {
       });
     }
 
-    // ============= BOOKING CANCELLATION =============
-    const updatedUser = await User.findOneAndUpdate(
-      {
-        email,
-        "bookedVisit.propertyId": propertyId,
-        "bookedVisit.bookingStatus": "active",
-        "bookedVisit.visitStatus": "pending",
-      },
-      {
-        $set: {
-          "bookedVisit.$.bookingStatus": "expired",
-          "bookedVisit.$.visitStatus": "cancelled",
-          "bookedVisit.$.cancelledAt": new Date(),
-        },
-      },
-      {
-        new: true,
-        session,
-        projection: { bookedVisit: 1, name: 1, telephone: 1, address: 1 },
-      }
-    ).lean();
+    // Find the user and booking
+    const user = await User.findOne({ email }).session(session);
+    if (!user) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        code: "USER_NOT_FOUND",
+        message: "User not found",
+      });
+    }
 
-    if (!updatedUser) {
+    // Find the active booking
+    const bookingIndex = user.bookedVisit.findIndex(
+      (b) =>
+        b.propertyId.toString() === propertyId &&
+        b.bookingStatus === "active" &&
+        b.visitStatus === "pending"
+    );
+
+    if (bookingIndex === -1) {
       await session.abortTransaction();
       return res.status(404).json({
         success: false,
@@ -1485,56 +1344,167 @@ export const cancelBooking = asyncHandler(async (req, res) => {
       });
     }
 
-    // ============= PAYMENT PROCESSING =============
-    const cancelledBooking = updatedUser.bookedVisit.find(
-      (b) => b.propertyId.toString() === propertyId
-    );
+    const booking = user.bookedVisit[bookingIndex];
 
+    // Process refund if payment was made
     let refundStatus = "not_required";
-    if (cancelledBooking.payment.status === "paid") {
+    if (booking.payment.status === "paid") {
       try {
-        switch (cancelledBooking.payment.method) {
+        switch (booking.payment.method) {
           case "stripe":
             await stripe.refunds.create({
-              payment_intent: cancelledBooking.payment.reference,
+              payment_intent: booking.payment.reference,
+              amount: Math.round(booking.payment.fee * 100), // Convert to cents
             });
+            refundStatus = "initiated";
             break;
 
           case "paypal":
-            await refundPayPalPayment(
-              cancelledBooking.payment.details.captureId
-            );
+            try {
+              // First verify if we have a PayPal order ID
+              const paypalOrderId = booking.payment.reference;
+              if (!paypalOrderId) {
+                throw new Error("Missing PayPal order ID in payment reference");
+              }
+
+              // 1. Get the order details first
+              const orderRequest = new paypal.orders.OrdersGetRequest(
+                paypalOrderId
+              );
+              const orderResponse = await paypalClient.execute(orderRequest);
+
+              // Check if order exists and is completed
+              if (
+                !orderResponse.result ||
+                orderResponse.result.status !== "COMPLETED"
+              ) {
+                throw new Error(
+                  `PayPal order not completed (status: ${orderResponse.result?.status})`
+                );
+              }
+
+              // 2. Try to find the capture ID from the order details
+              let captureId =
+                orderResponse.result.purchase_units[0]?.payments?.captures[0]
+                  ?.id;
+
+              // If no capture ID found, try to capture the order
+              if (!captureId) {
+                const captureRequest = new paypal.orders.OrdersCaptureRequest(
+                  paypalOrderId
+                );
+                captureRequest.requestBody({});
+
+                const captureResponse = await paypalClient.execute(
+                  captureRequest
+                );
+
+                if (captureResponse.result.status !== "COMPLETED") {
+                  throw new Error("Failed to capture PayPal order");
+                }
+
+                captureId =
+                  captureResponse.result.purchase_units[0]?.payments
+                    ?.captures[0]?.id;
+
+                if (!captureId) {
+                  throw new Error("Could not get capture ID from PayPal order");
+                }
+              }
+
+              // 3. Process the refund with the capture ID
+              const refundRequest = new paypal.payments.CapturesRefundRequest(
+                captureId
+              );
+              refundRequest.requestBody({
+                amount: {
+                  value: booking.payment.fee.toString(),
+                  currency_code: booking.payment.currency || "USD",
+                },
+                note_to_payer: "Booking cancellation refund",
+              });
+
+              const refundResponse = await paypalClient.execute(refundRequest);
+
+              if (refundResponse.statusCode !== 201) {
+                throw new Error(
+                  `PayPal refund failed with status ${refundResponse.statusCode}`
+                );
+              }
+
+              refundStatus = "initiated";
+            } catch (paypalError) {
+              console.error("PayPal refund error:", {
+                error: paypalError.message,
+                debugId: paypalError.response?.headers?.["paypal-debug-id"],
+                orderId: booking.payment.reference,
+                paymentDetails: booking.payment.details,
+              });
+              refundStatus = "failed";
+            }
             break;
 
           case "paystack":
           case "mobile_money":
-            await axios.post(
+            const paystackResponse = await axios.post(
               `${PAYSTACK_BASE_URL}/refund`,
-              { transaction: cancelledBooking.payment.reference },
-              { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } }
+              {
+                transaction: booking.payment.reference,
+                amount: Math.round(booking.payment.fee * 100), // Paystack uses amount in kobo/pesewas
+                currency: booking.payment.currency || "GHS",
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+                  "Content-Type": "application/json",
+                },
+              }
             );
+
+            if (
+              !paystackResponse.data.status ||
+              paystackResponse.data.data.status !== "processed"
+            ) {
+              throw new Error(
+                `Paystack refund failed: ${
+                  paystackResponse.data.message || "Unknown error"
+                }`
+              );
+            }
+            refundStatus = "initiated";
             break;
         }
-
-        refundStatus = "initiated";
-        await User.updateOne(
-          { email, "bookedVisit.id": cancelledBooking.id },
-          { $set: { "bookedVisit.$.payment.status": "refunded" } },
-          { session }
-        );
       } catch (refundError) {
         console.error("Refund failed:", refundError);
         refundStatus = "failed";
+
+        // Log detailed error information
+        if (refundError.response) {
+          console.error("Refund error details:", {
+            status: refundError.response.status,
+            data: refundError.response.data,
+            headers: refundError.response.headers,
+          });
+        }
       }
     }
 
-    // ============= DATA RETRIEVAL =============
-    const [property, owner, admins] = await Promise.all([
+    // Update booking status
+    user.bookedVisit[bookingIndex].bookingStatus = "cancelled";
+    user.bookedVisit[bookingIndex].visitStatus = "cancelled";
+    user.bookedVisit[bookingIndex].cancelledAt = new Date();
+
+    if (refundStatus === "initiated") {
+      user.bookedVisit[bookingIndex].payment.status = "refunded";
+      user.bookedVisit[bookingIndex].payment.refundedAt = new Date();
+    }
+
+    await user.save({ session });
+
+    // Get property and admin details
+    const [property, admins] = await Promise.all([
       Residency.findById(propertyId)
         .select("title userEmail images")
-        .session(session),
-      User.findOne({ email: property.userEmail })
-        .select("email")
         .session(session),
       User.find({ role: "admin" }).select("email").session(session),
     ]);
@@ -1548,46 +1518,58 @@ export const cancelBooking = asyncHandler(async (req, res) => {
       });
     }
 
-    // ============= NOTIFICATIONS =============
+    // Send notifications
     const emailData = {
-      userName: updatedUser.name,
+      userName: user.name,
       propertyTitle: property.title,
-      date: dayjs(cancelledBooking.date, "DD/MM/YYYY").format("MMMM D, YYYY"),
-      time: dayjs(cancelledBooking.time, "HH:mm").format("h:mm A"),
-      bookingNumber: cancelledBooking.id,
-      amount: cancelledBooking.payment.fee,
-      currency: cancelledBooking.payment.currency,
+      date: dayjs(booking.date, "DD/MM/YYYY").format("MMMM D, YYYY"),
+      time: dayjs(booking.time, "HH:mm").format("h:mm A"),
+      bookingNumber: booking.id,
+      amount: booking.payment.fee,
+      currency: booking.payment.currency,
       refundStatus,
       propertyImage: property.images[0] || null,
       supportEmail: process.env.SUPPORT_EMAIL,
-      cancellationLink: `${process.env.FRONTEND_URL}/cancellations/${cancelledBooking.id}`,
+      cancellationLink: `${process.env.FRONTEND_URL}/cancellations/${booking.id}`,
       year: new Date().getFullYear(),
     };
 
     await Promise.all([
-      getVisitCancellationNotification(email, emailData),
-      owner?.email && getOwnerVisitCancellation(owner.email, emailData),
-      getOwnerVisitCancellation(admins, emailData),
+      sendEmail(
+        user.email,
+        "Booking Cancellation Confirmation",
+        getVisitCancellationNotification(emailData)
+      ),
+      sendEmail(
+        property.userEmail,
+        `Booking Cancelled: ${property.title}`,
+        getOwnerVisitCancellation(emailData)
+      ),
+      ...admins.map((admin) =>
+        sendEmail(
+          admin.email,
+          `Admin: Booking Cancelled (${booking.id})`,
+          getOwnerVisitCancellation(emailData)
+        )
+      ),
     ]);
 
     await session.commitTransaction();
 
-    // ============= FINAL RESPONSE =============
     res.json({
       success: true,
       code: "BOOKING_CANCELLED",
       message: "Booking cancelled successfully",
       data: {
-        bookingId: cancelledBooking.id,
+        bookingId: booking.id,
         property: property.title,
         cancellationDate: new Date(),
         refundStatus,
-        amountRefunded:
-          refundStatus === "initiated" ? cancelledBooking.payment.fee : 0,
-        currency: cancelledBooking.payment.currency,
+        amountRefunded: refundStatus === "initiated" ? booking.payment.fee : 0,
+        currency: booking.payment.currency,
       },
       _links: {
-        dispute: `${process.env.FRONTEND_URL}/support?case=${cancelledBooking.id}`,
+        dispute: `${process.env.FRONTEND_URL}/support?case=${booking.id}`,
         newBooking: `${process.env.FRONTEND_URL}/properties/${propertyId}`,
       },
     });

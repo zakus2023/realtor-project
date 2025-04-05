@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import "./ContactModal.css";
 import { toast } from "react-toastify";
 
+const VITE_BACKEND_BASE_URL= import.meta.env.VITE_BACKEND_BASE_URL
+
 const ContactModal = ({ isOpen, onClose }) => {
   const [formData, setFormData] = useState({
     to_email: "idbsch2012@gmail.com", // Fixed recipient's email

@@ -1,5 +1,6 @@
 import React from "react";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL
 
 const StripePayment = ({ amount, onSuccess, onFailure }) => {
   const stripe = useStripe();

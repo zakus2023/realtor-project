@@ -262,7 +262,7 @@ export const addProperty = asyncHandler(async (req, res) => {
       propertyTitle: title,
       ownerEmail: owner.email,
       propertyId: savedResidency.id,
-      adminLink: `${process.env.ADMIN_URL}/listings/${savedResidency.id}`,
+      adminLink: `${process.env.FRONTEND_URL}/listing/${savedResidency.id}`,
     });
 
     await Promise.all(

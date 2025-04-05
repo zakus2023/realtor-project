@@ -1,4 +1,5 @@
 // api/utils/emailTemplates.js
+
 export { emailWrapper };
 const emailWrapper = (content, data) => `
 <!DOCTYPE html>
@@ -201,7 +202,7 @@ export const getSubscriptionEmail = (data) =>
     </ul>
     
     <div style="text-align: center; margin-top: 20px">
-      <a href="${process.env.FRONTEND_URL}/properties" 
+      <a href="${process.env.FRONTEND_URL}/listings" 
          style="background: #004085; color: white; padding: 12px 24px;
                 text-decoration: none; border-radius: 4px; display: inline-block;
                 font-weight: bold">

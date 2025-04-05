@@ -1133,7 +1133,7 @@ export const bookVisit = asyncHandler(async (req, res) => {
       paymentStatus,
       amount: amount,
       currency: newBooking.payment.currency,
-      propertyLink: `${process.env.FRONTEND_URL}/properties/${propertyId}`,
+      propertyLink: `${process.env.FRONTEND_URL}/listing/${propertyId}`,
       supportEmail: process.env.SUPPORT_EMAIL,
       year: new Date().getFullYear(),
     };

@@ -1,11 +1,10 @@
-import { useUser } from "@clerk/clerk-react";
 import axios from "axios"; // Import Axios for making HTTP requests
 import dayjs from "dayjs"; // Import Day.js for date/time manipulation (not used here but can be useful)
 import { toast } from "react-toastify"; // Import toast notifications for error handling and user feedback
 
 // Create an Axios instance with a base URL for API requests
 export const api = axios.create({
-  baseURL: import.meta.env.BACKEND_BASE_URL || "http://localhost:5000", // Base URL for backend API requests
+  baseURL: import.meta.env.BACKEND_BASE_URL, // Base URL for backend API requests
   headers: {
     "Content-Type": "application/json",
   },

@@ -53,7 +53,7 @@ function GetStarted() {
 
     try {
       setSubscribing(true);
-      const response = await fetch("http://localhost:5000/api/user/subscribe", {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/user/subscribe`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -89,7 +89,7 @@ function GetStarted() {
   const handleUnsubscribe = async () => {
     try {
       setUnsubscribeIsLoading(true);
-      const response = await fetch("http://localhost:5000/api/user/unsubscribe", {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/user/unsubscribe`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",

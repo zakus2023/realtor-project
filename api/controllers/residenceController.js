@@ -106,30 +106,6 @@ const clerkClient = createClerkClient({
 });
 // =============================================================
 
-// Helper function to handle user lookup
-// const findOrCreateUser = async (clerkUserId) => {
-//   let user = await User.findOne({ clerkId: clerkUserId });
-
-//   if (!user) {
-//     try {
-//       const clerkUser = await clerkClient.users.getUser(clerkUserId);
-//       user = await User.create({
-//         clerkId: clerkUser.id,
-//         email: clerkUser.emailAddresses[0].emailAddress,
-//         firstName: clerkUser.firstName,
-//         lastName: clerkUser.lastName,
-//         role: 'user' // Default role
-//       });
-//       console.log('Created new user from Clerk data:', user);
-//     } catch (error) {
-//       console.error('Failed to create user from Clerk data:', error);
-//       throw new Error('User not found and cannot be created');
-//     }
-//   }
-
-//   return user;
-// };
-
 export const addProperty = asyncHandler(async (req, res) => {
   try {
     // 1. Authentication Verification

@@ -89,7 +89,7 @@ function GetStarted() {
   const handleUnsubscribe = async () => {
     try {
       setUnsubscribeIsLoading(true);
-      const response = await fetch(`${BACKEND_BASE_URL}/api/user/unsubscribe`, {
+      const response = await fetch(`${VITE_BACKEND_BASE_URL}/api/user/unsubscribe`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",

@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { fetchSubscription } from "../../utils/api";
+const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL
 
 function GetStarted() {
   const queryClient = useQueryClient();

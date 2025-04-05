@@ -301,7 +301,7 @@ function AllBookings() {
               <Input value={selectedBooking.time} disabled />
             </Form.Item>
             <Form.Item label="Payment Status">
-              <Input value="Pay on arrival" disabled />
+              <Input value={selectedBooking.payment.status} disabled />
             </Form.Item>
             <Form.Item label="Booking Status">
               <Select

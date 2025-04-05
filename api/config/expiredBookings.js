@@ -28,8 +28,9 @@ const checkAndRemoveExpiredBookings = async (email) => {
 
       const isExpired = bookingDate.isBefore(currentUTC);
       const isCompleted = booking.visitStatus === "completed";
+      const isCancelled = booking.bookingStatus === "cancelled";
 
-      return !isExpired && !isCompleted;
+      return !isExpired && !isCompleted && !isCancelled;
     });
 
     if (activeBookings.length !== (user.bookedVisit || []).length) {

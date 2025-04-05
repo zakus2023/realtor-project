@@ -1266,14 +1266,16 @@ const generateUniqueBookingNumber = async () => {
   return `${prefix}-${timestamp}-${randomString}`;
 };
 
-// controllers/userController.js
+// update expired bookings
 export const updateExpiredBookings = async () => {
   try {
     const result = await User.updateMany(
       {
         // Find users with active bookings that have passed
         "bookedVisit.bookingStatus": "active",
-        "bookedVisit.date": { $lt: new Date() },
+        "bookedVisit.date": { 
+          $lt: dayjs().format("DD/MM/YYYY") 
+        },
       },
       {
         // Update matching bookings to 'expired'
@@ -1288,8 +1290,7 @@ export const updateExpiredBookings = async () => {
         arrayFilters: [
           {
             "elem.bookingStatus": "active",
-            "elem.visitStatus": "expired",
-            "elem.date": { $lt: new Date() },
+            "elem.date": { $lt: dayjs().format("DD/MM/YYYY") },
           },
         ],
       }

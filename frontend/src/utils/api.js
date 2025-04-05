@@ -9,6 +9,8 @@ export const api = axios.create({
     "Content-Type": "application/json",
   },
 });
+console.log(import.meta.env.BACKEND_BASE_URL)
+
 // Update your fetchUserDetails to handle token properly
 export const fetchUserDetails = async (email, token) => {
   try {

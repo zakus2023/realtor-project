@@ -1707,77 +1707,96 @@ export const fetchUserBookings = asyncHandler(async (req, res) => {
 
 export const fetchAllBookings = asyncHandler(async (req, res) => {
   try {
-    // Pagination parameters
+    // PAGINATION CONFIGURATION
+    // Extract page number from query params, default to 1 if not provided or invalid
     const page = parseInt(req.query.page) || 1;
+    // Extract items per page limit from query params, default to 100
     const limit = parseInt(req.query.limit) || 100;
+    // Calculate number of documents to skip based on current page
     const skip = (page - 1) * limit;
 
-    // Base query with count
+    // DATABASE QUERIES
+    // Execute both data fetch and count queries in parallel for efficiency
     const [bookings, totalCount] = await Promise.all([
-      User.find({ "bookedVisit.0": { $exists: true } })
-        .select("name email telephone bookedVisit")
+      // QUERY 1: Fetch booking data with pagination
+      User.find({ "bookedVisit.0": { $exists: true } }) // Find users with at least one booking
+        .select("name email telephone bookedVisit") // Only include these user fields
         .populate({
-          path: "bookedVisit.propertyId",
-          select: "title price address status userEmail gpsCode",
+          path: "bookedVisit.propertyId", // Populate property reference in bookings
+          select: "title price address status userEmail gpsCode", // Fields to include from Property
           match: { status: "published" }, // Only include published properties
         })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+        .skip(skip) // Apply pagination skip
+        .limit(limit) // Apply pagination limit
+        .lean(), // Convert to plain JS objects for better performance
 
+      // QUERY 2: Get total count of users with bookings for pagination info
       User.countDocuments({ "bookedVisit.0": { $exists: true } }),
     ]);
 
-    // Process and filter bookings
+    // DATA PROCESSING PIPELINE
     const formattedBookings = bookings
+      // Convert array of users with bookings to flat array of all bookings
       .flatMap((user) =>
         user.bookedVisit
-          .filter((booking) => booking.propertyId) // Remove deleted properties
+          // Filter out bookings where property doesn't exist or isn't published
+          .filter((booking) => booking.propertyId)
+          // Transform each booking to include user and property details
           .map((booking) => ({
-            ...booking,
+            ...booking, // Spread all existing booking fields
+            // Add user information to each booking
             user: {
               name: user.name,
               email: user.email,
               telephone: user.telephone,
             },
+            // Add structured property information from populated data
             property: {
               title: booking.propertyId.title,
               price: booking.propertyId.price,
               address: booking.propertyId.address,
-              owner: booking.propertyId.userEmail,
-              propertyId: booking.propertyId._id,
-              gpsCode: booking.propertyId.gpsCode,
+              owner: booking.propertyId.userEmail, // Property owner's email
+              propertyId: booking.propertyId._id, // Actual property ID
+              gpsCode: booking.propertyId.gpsCode, // GPS coordinates if available
             },
-            // Remove internal IDs from response
-            propertyId: undefined,
-            _id: undefined,
+            // Remove internal fields from response for cleaner output
+            propertyId: undefined, // Remove duplicate property reference
+            _id: undefined, // Remove MongoDB's internal _id field
           }))
       )
-      .filter((booking) => booking.property.title); // Final cleanup
+      // Final quality check - ensure all bookings have valid property titles
+      .filter((booking) => booking.property.title);
 
+    // SUCCESS RESPONSE
     res.status(200).json({
-      success: true,
-      count: formattedBookings.length,
-      totalCount,
-      page,
-      pageCount: Math.ceil(totalCount / limit),
-      bookings: formattedBookings,
+      success: true, // Operation status flag
+      count: formattedBookings.length, // Number of bookings on current page
+      totalCount, // Total bookings across all pages
+      page, // Current page number
+      pageCount: Math.ceil(totalCount / limit), // Total number of pages available
+      bookings: formattedBookings, // The processed booking data
     });
   } catch (error) {
-    console.error("Fetch all bookings error:", error);
+    // ERROR HANDLING
+    console.error("Fetch all bookings error:", error); // Log full error for debugging
 
+    // Prepare error response object
     const response = {
-      success: false,
-      message: "Failed to retrieve bookings",
+      success: false, // Operation failed flag
+      message: "Failed to retrieve bookings", // Default error message
     };
 
+    // Handle specific error types differently
     if (error.name === "CastError") {
+      // Special case for invalid pagination parameters
       response.message = "Invalid pagination parameters";
-      res.status(400);
+      res.status(400); // Bad Request status code
     } else {
-      res.status(500);
+      // Generic server error for all other cases
+      res.status(500); // Internal Server Error status code
     }
 
+    // Send error response to client
     res.json(response);
   }
 });

@@ -13,7 +13,6 @@ function AllBookings() {
   const token = userDetails.token;
   const navigate = useNavigate();
 
-
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
 
@@ -23,7 +22,7 @@ function AllBookings() {
     { refetchOnWindowFocus: false }
   );
 
-  console.log("Allbookings: ",data)
+  console.log("Allbookings: ", data);
 
   // Mutation to update booking status
   const { mutate: updateStatus } = useMutation(
@@ -41,7 +40,11 @@ function AllBookings() {
   );
 
   const handleStatusChange = (value) => {
-    const updatedBooking = { ...selectedBooking, visitStatus: value };
+    const updatedBooking = {
+      ...selectedBooking,
+      visitStatus: value,
+      paymentStatus: value,
+    };
     setSelectedBooking(updatedBooking);
 
     // Trigger the mutation
@@ -49,6 +52,7 @@ function AllBookings() {
       userEmail: selectedBooking.user?.email, // Use visitor's email from the booking
       bookingId: selectedBooking.id,
       visitStatus: value,
+      status: value,
     });
   };
 
@@ -300,10 +304,19 @@ function AllBookings() {
             <Form.Item label="Time">
               <Input value={selectedBooking.time} disabled />
             </Form.Item>
-            <Form.Item label="Payment Status">
-              <Input value={selectedBooking.payment.status} disabled />
+            <Form.Item label="Payment Method">
+              <Input value={selectedBooking.payment.method} disabled />
             </Form.Item>
-            <Form.Item label="Booking Status">
+            <Form.Item label="Payment Status">
+              <Select
+                value={selectedBooking.payment.status}
+                onChange={handleStatusChange}
+              >
+                <Option value="pending">Pending</Option>
+                <Option value="paid">Paid</Option>
+              </Select>
+            </Form.Item>
+            <Form.Item label="Visit Status">
               <Select
                 value={selectedBooking.visitStatus}
                 onChange={handleStatusChange}

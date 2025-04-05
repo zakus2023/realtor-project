@@ -1266,39 +1266,64 @@ const generateUniqueBookingNumber = async () => {
   return `${prefix}-${timestamp}-${randomString}`;
 };
 
-// update expired bookings
+
+/**
+ * Updates all expired bookings across all users in the database
+ * Finds and marks active bookings with past dates as expired
+ * @returns {Promise<void>}
+ * @throws {Error} - Throws error if the update operation fails
+ */
 export const updateExpiredBookings = async () => {
   try {
+    // Perform a bulk update operation across all users
     const result = await User.updateMany(
       {
-        // Find users with active bookings that have passed
+        // Query criteria:
+        // 1. Find users who have at least one booking with 'active' status
         "bookedVisit.bookingStatus": "active",
+        // 2. And where the booking date is before today's date
+        //    (using dayjs().format() to get current date in DD/MM/YYYY format)
         "bookedVisit.date": { 
           $lt: dayjs().format("DD/MM/YYYY") 
         },
       },
       {
-        // Update matching bookings to 'expired'
+        // Update operation:
+        // $set operator to modify specific fields in matched bookings
         $set: {
+          // Update bookingStatus to 'expired'
           "bookedVisit.$[elem].bookingStatus": "expired",
+          // Record cancellation timestamp in metadata
           "bookedVisit.$[elem].metadata.cancelledAt": new Date(),
+          // Update visitStatus to 'expired'
           "bookedVisit.$[elem].visitStatus": "expired",
         },
       },
       {
-        // Array filters for precise targeting
+        // Array filters for precise targeting within the bookedVisit array:
+        // Only apply updates to array elements that match these criteria
         arrayFilters: [
           {
+            // Match elements where:
+            // 1. bookingStatus is 'active'
             "elem.bookingStatus": "active",
+            // 2. date is before today (same format as above)
             "elem.date": { $lt: dayjs().format("DD/MM/YYYY") },
           },
         ],
+        // Note: By default, updateMany only updates the first matching
+        // array element per document. To update all matches, you would
+        // need to use the { multi: true } option, but in this case
+        // the arrayFilters handle that for us.
       }
     );
 
+    // Log the number of bookings that were updated
     console.log(`Expired ${result.modifiedCount} bookings`);
   } catch (error) {
+    // Log any errors that occur during the bulk update
     console.error("Error updating expired bookings:", error);
+    // Re-throw the error to be handled by the calling function
     throw error;
   }
 };
@@ -1760,10 +1785,10 @@ export const fetchAllBookings = asyncHandler(async (req, res) => {
 // update visit status
 export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
   const { userEmail, bookingId } = req.params;
-  const { visitStatus } = req.body;
+  const { visitStatus, status } = req.body;
 
   // Validate input parameters
-  const allowedStatuses = ["pending", "confirmed", "completed", "cancelled"];
+  const allowedStatuses = ["pending", "confirmed", "completed", "cancelled", "paid"];
   if (!allowedStatuses.includes(visitStatus)) {
     return res.status(400).json({
       success: false,
@@ -1947,35 +1972,6 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
   }
 });
 
-// Helper Functions ------------------------------------------------------
-
-// async function sendUserNotification(email, data) {
-//   try {
-//     await transporter.sendMail({
-//       to: email,
-//       subject: `Booking Status Update - ${data.newStatus.toUpperCase()}`,
-//       html: generateUserStatusEmail(data),
-//       text: stripHtml(generateUserStatusEmail(data)).result,
-//     });
-//   } catch (error) {
-//     console.error("Failed to send user notification:", error);
-//   }
-// }
-
-// async function sendOwnerNotification(ownerEmail, data) {
-//   if (!ownerEmail) return;
-
-//   try {
-//     await transporter.sendMail({
-//       to: ownerEmail,
-//       subject: `Booking Update for ${data.propertyTitle}`,
-//       html: generateOwnerStatusEmail(data),
-//       text: stripHtml(generateOwnerStatusEmail(data)).result,
-//     });
-//   } catch (error) {
-//     console.error("Failed to send owner notification:", error);
-//   }
-// }
 
 // =========================================================================
 

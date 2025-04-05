@@ -13,6 +13,7 @@ function AllBookings() {
   const token = userDetails.token;
   const navigate = useNavigate();
 
+
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
 
@@ -21,6 +22,8 @@ function AllBookings() {
     () => fetchAllBookings(token),
     { refetchOnWindowFocus: false }
   );
+
+  console.log("Allbookings: ",data)
 
   // Mutation to update booking status
   const { mutate: updateStatus } = useMutation(
@@ -85,7 +88,7 @@ function AllBookings() {
       render: (property) => (
         <span
           style={{ color: "#1890ff", cursor: "pointer" }}
-          onClick={() => navigate(`/listing/${property.id}`)}
+          onClick={() => navigate(`/listing/${property.propertyId}`)}
         >
           {property?.title || "N/A"}
         </span>

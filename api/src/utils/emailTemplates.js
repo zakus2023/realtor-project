@@ -46,25 +46,32 @@ const emailWrapper = (content, data) => `
 
 // Updated to return the HTML content only
 export const getConfirmationEmail = (data) => {
-  return emailWrapper(`
+  return emailWrapper(
+    `
     <h2 style="color: #004085; margin-top: 0">Booking Confirmation</h2>
     <p>Hello ${data.userName},</p>
     <p>Your booking for <strong>${data.propertyTitle}</strong> has been successfully confirmed.</p>
     <!-- Rest of your template content -->
-  `, { ...data, subject: 'Booking Confirmation' });
+  `,
+    { ...data, subject: "Booking Confirmation" }
+  );
 };
 
 export const getOwnerNotificationEmail = (data) => {
-  return emailWrapper(`
+  return emailWrapper(
+    `
     <h2 style="color: #004085; margin-top: 0">New Booking Notification</h2>
     <p>Your property <strong>${data.propertyTitle}</strong> has received a new booking request.</p>
     <!-- Rest of your template content -->
-  `, { ...data, subject: 'New Booking Notification' });
+  `,
+    { ...data, subject: "New Booking Notification" }
+  );
 };
 
-
 // Visit Cancellation
-export const getVisitCancellationNotification = (data) => emailWrapper(`
+export const getVisitCancellationNotification = (data) =>
+  emailWrapper(
+    `
   <h2 style="color: #004085; margin-top: 0">Booking Cancellation</h2>
   <p>Hello ${data.userName},</p>
   <p>Your booking for <strong>${data.propertyTitle}</strong> has been cancelled.</p>
@@ -93,10 +100,14 @@ export const getVisitCancellationNotification = (data) => emailWrapper(`
       </a>
     </div>
   </div>
-`, { ...data, subject: 'Booking Cancellation' });
+`,
+    { ...data, subject: "Booking Cancellation" }
+  );
 
 // Owner Cancellation Notification
-export const getOwnerVisitCancellation = (data) => emailWrapper(`
+export const getOwnerVisitCancellation = (data) =>
+  emailWrapper(
+    `
   <h2 style="color: #004085; margin-top: 0">Visit Cancellation Notice</h2>
   <p>A booking for your property <strong>${data.propertyTitle}</strong> has been cancelled.</p>
   
@@ -116,10 +127,14 @@ export const getOwnerVisitCancellation = (data) => emailWrapper(`
       </tr>
     </table>
   </div>
-`, { ...data, subject: 'Visit Cancellation Notice' });
+`,
+    { ...data, subject: "Visit Cancellation Notice" }
+  );
 
 // Subscription Notifications
-export const getAdminSubscriptionNotification = (data) => emailWrapper(`
+export const getAdminSubscriptionNotification = (data) =>
+  emailWrapper(
+    `
   <h2 style="color: #004085; margin-top: 0">New Newsletter Subscription</h2>
   <p>A new user has subscribed to your newsletter:</p>
   
@@ -127,18 +142,26 @@ export const getAdminSubscriptionNotification = (data) => emailWrapper(`
     <table width="100%" style="margin: 15px 0; border-collapse: collapse">
       <tr>
         <td style="padding: 8px; width: 30%; border-bottom: 1px solid #dee2e6; font-weight: bold">Subscriber Email</td>
-        <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${data.email}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${
+          data.email
+        }</td>
       </tr>
       <tr>
         <td style="padding: 8px; width: 30%; font-weight: bold">Subscription Date</td>
-        <td style="padding: 8px">${new Date(data.subscriptionDate).toLocaleDateString()}</td>
+        <td style="padding: 8px">${new Date(
+          data.subscriptionDate
+        ).toLocaleDateString()}</td>
       </tr>
     </table>
   </div>
-`, { ...data, subject: 'New Newsletter Subscription' });
+`,
+    { ...data, subject: "New Newsletter Subscription" }
+  );
 
 // Admin Unsubscription Notification (NEW TEMPLATE)
-export const getAdminUnsubscriptionNotification = (data) => emailWrapper(`
+export const getAdminUnsubscriptionNotification = (data) =>
+  emailWrapper(
+    `
   <h2 style="color: #004085; margin-top: 0">Newsletter Unsubscription</h2>
   <p>A user has unsubscribed from your newsletter:</p>
   
@@ -146,17 +169,25 @@ export const getAdminUnsubscriptionNotification = (data) => emailWrapper(`
     <table width="100%" style="margin: 15px 0; border-collapse: collapse">
       <tr>
         <td style="padding: 8px; width: 30%; border-bottom: 1px solid #dee2e6; font-weight: bold">Subscriber Email</td>
-        <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${data.email}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${
+          data.email
+        }</td>
       </tr>
       <tr>
         <td style="padding: 8px; width: 30%; font-weight: bold">Unsubscription Date</td>
-        <td style="padding: 8px">${new Date(data.unsubscriptionDate).toLocaleDateString()}</td>
+        <td style="padding: 8px">${new Date(
+          data.unsubscriptionDate
+        ).toLocaleDateString()}</td>
       </tr>
     </table>
   </div>
-`, { ...data, subject: 'Newsletter Unsubscription Notification' });
+`,
+    { ...data, subject: "Newsletter Unsubscription Notification" }
+  );
 
-export const getSubscriptionEmail = (data) => emailWrapper(`
+export const getSubscriptionEmail = (data) =>
+  emailWrapper(
+    `
   <h2 style="color: #004085; margin-top: 0">Subscription Confirmed</h2>
   <p>Thank you for subscribing to AetherSoft Realtors!</p>
   
@@ -177,9 +208,13 @@ export const getSubscriptionEmail = (data) => emailWrapper(`
       </a>
     </div>
   </div>
-`, { ...data, subject: 'Subscription Confirmed' });
+`,
+    { ...data, subject: "Subscription Confirmed" }
+  );
 
-export const getUnsubscriptionEmail = (data) => emailWrapper(`
+export const getUnsubscriptionEmail = (data) =>
+  emailWrapper(
+    `
   <h2 style="color: #004085; margin-top: 0">Unsubscription Confirmation</h2>
   <p>We're sorry to see you go!</p>
   
@@ -202,10 +237,14 @@ export const getUnsubscriptionEmail = (data) => emailWrapper(`
       </a>
     </div>
   </div>
-`, { ...data, subject: 'Unsubscription Confirmation' });
+`,
+    { ...data, subject: "Unsubscription Confirmation" }
+  );
 
 // Property Created - Owner Notification
-export const getPropertyCreatedOwnerEmail = (data) => emailWrapper(`
+export const getPropertyCreatedOwnerEmail = (data) =>
+  emailWrapper(
+    `
   <h2 style="color: #004085; margin-top: 0">Property Submission Received</h2>
   <p>Thank you for submitting your property, <strong>${data.propertyTitle}</strong>!</p>
   
@@ -234,10 +273,14 @@ export const getPropertyCreatedOwnerEmail = (data) => emailWrapper(`
     </div>
   </div>
   <p style="margin-top: 20px">Our team will review your submission and notify you once it's published.</p>
-`, { ...data, subject: 'Property Submission Confirmation' });
+`,
+    { ...data, subject: "Property Submission Confirmation" }
+  );
 
 // Property Created - Admin Notification
-export const getPropertyCreatedAdminEmail = (data) => emailWrapper(`
+export const getPropertyCreatedAdminEmail = (data) =>
+  emailWrapper(
+    `
   <h2 style="color: #004085; margin-top: 0">New Property Submission</h2>
   <p>A new property requires administrative review:</p>
   
@@ -265,11 +308,17 @@ export const getPropertyCreatedAdminEmail = (data) => emailWrapper(`
       </a>
     </div>
   </div>
-`, { ...data, subject: 'New Property Submission Requires Review' });
+`,
+    { ...data, subject: "New Property Submission Requires Review" }
+  );
 
 // Property Published Notification
-export const getPropertyPublished = (data) => emailWrapper(`
-  <h2 style="color: #004085; margin-top: 0">${data.subjectPrefix || 'Property Update'}</h2>
+export const getPropertyPublished = (data) =>
+  emailWrapper(
+    `
+  <h2 style="color: #004085; margin-top: 0">${
+    data.subjectPrefix || "Property Update"
+  }</h2>
   <div style="border: 1px solid #dee2e6; border-radius: 5px; overflow: hidden; margin: 20px 0">
     <img src="${data.mainImage}" 
          alt="${data.propertyTitle}" 
@@ -289,14 +338,162 @@ export const getPropertyPublished = (data) => emailWrapper(`
       </div>
     </div>
   </div>
-  ${data.unsubscribeLink ? `
+  ${
+    data.unsubscribeLink
+      ? `
   <p style="font-size: 0.9em; color: #6c757d; text-align: center">
     <a href="${data.unsubscribeLink}" style="color: #6c757d">Unsubscribe from property alerts</a>
-  </p>` : ''}
-`, { 
-  ...data, 
-  subject: data.emailSubject || 'Property Status Update',
-  currentYear: new Date().getFullYear() 
-});
+  </p>`
+      : ""
+  }
+`,
+    {
+      ...data,
+      subject: data.emailSubject || "Property Status Update",
+      currentYear: new Date().getFullYear(),
+    }
+  );
 
 
+// Booking Status Notification Templates
+
+export const generateUserStatusEmail = (data = {}) => {
+  const safeData = {
+    userName: data.userName || 'Customer',
+    bookingId: data.bookingId || 'N/A',
+    propertyTitle: data.propertyTitle || 'Unknown Property',
+    oldStatus: data.oldStatus || 'unknown',
+    newStatus: data.newStatus || 'unknown',
+    bookingDate: data.bookingDate || 'Not specified',
+    bookingTime: data.bookingTime || 'Not specified',
+    supportEmail: data.supportEmail || process.env.SUPPORT_EMAIL || 'support@example.com'
+  };
+
+  return emailWrapper(
+    `
+    <h2 style="color: #004085; margin-top: 0">Booking Status Update</h2>
+    <p>Hello ${safeData.userName},</p>
+    <p>Your booking status has been updated:</p>
+    
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 5px">
+      <table width="100%" style="margin: 15px 0; border-collapse: collapse">
+        <tr>
+          <td style="padding: 8px; width: 30%; border-bottom: 1px solid #dee2e6; font-weight: bold">Booking ID</td>
+          <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${safeData.bookingId}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; width: 30%; border-bottom: 1px solid #dee2e6; font-weight: bold">Property</td>
+          <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${safeData.propertyTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; width: 30%; border-bottom: 1px solid #dee2e6; font-weight: bold">Previous Status</td>
+          <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${safeData.oldStatus}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; width: 30%; font-weight: bold">New Status</td>
+          <td style="padding: 8px">${safeData.newStatus}</td>
+        </tr>
+      </table>
+      
+      <div style="margin-top: 20px">
+        <p><strong>Date:</strong> ${safeData.bookingDate}</p>
+        <p><strong>Time:</strong> ${safeData.bookingTime}</p>
+      </div>
+    </div>
+    
+    <p style="margin-top: 20px">
+      If you have any questions about this update, please contact our support team at 
+      <a href="mailto:${safeData.supportEmail}">${safeData.supportEmail}</a>.
+    </p>
+  `,
+    { ...safeData, subject: `Booking Status Update - ${safeData.newStatus.toUpperCase()}` }
+  );
+};
+
+export const generateOwnerStatusEmail = (data = {}) => {
+  const safeData = {
+    propertyTitle: data.propertyTitle || 'Unknown Property',
+    bookingId: data.bookingId || 'N/A',
+    userName: data.userName || 'Unknown Visitor',
+    oldStatus: data.oldStatus || 'unknown',
+    newStatus: data.newStatus || 'unknown',
+    bookingDate: data.bookingDate || 'Not specified',
+    bookingTime: data.bookingTime || 'Not specified',
+    propertyAddress: data.propertyAddress || 'Address not available',
+    propertyImage: data.propertyImage || null
+  };
+
+  return emailWrapper(
+    `
+    <h2 style="color: #004085; margin-top: 0">Booking Update Notification</h2>
+    <p>A booking for your property has been updated:</p>
+    
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 5px">
+      <table width="100%" style="margin: 15px 0; border-collapse: collapse">
+        <tr>
+          <td style="padding: 8px; width: 30%; border-bottom: 1px solid #dee2e6; font-weight: bold">Booking ID</td>
+          <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${safeData.bookingId}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; width: 30%; border-bottom: 1px solid #dee2e6; font-weight: bold">Visitor</td>
+          <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${safeData.userName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; width: 30%; border-bottom: 1px solid #dee2e6; font-weight: bold">Status Change</td>
+          <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${safeData.oldStatus} → ${safeData.newStatus}</td>
+        </tr>
+      </table>
+      
+      <div style="margin-top: 20px">
+        <p><strong>Scheduled Date:</strong> ${safeData.bookingDate}</p>
+        <p><strong>Scheduled Time:</strong> ${safeData.bookingTime}</p>
+        <p><strong>Property Address:</strong> ${safeData.propertyAddress}</p>
+      </div>
+    </div>
+  `,
+    { ...safeData, subject: `Booking Update for ${safeData.propertyTitle}` }
+  );
+};
+
+export const generateAdminStatusEmail = (data = {}) => {
+  const safeData = {
+    bookingId: data.bookingId || 'N/A',
+    propertyTitle: data.propertyTitle || 'Unknown Property',
+    userName: data.userName || 'Unknown Visitor',
+    oldStatus: data.oldStatus || 'unknown',
+    newStatus: data.newStatus || 'unknown',
+    bookingDate: data.bookingDate || 'Not specified',
+    bookingTime: data.bookingTime || 'Not specified',
+    propertyAddress: data.propertyAddress || 'Address not available',
+    ownerEmail: data.ownerEmail || 'Not specified'
+  };
+
+  return emailWrapper(
+    `
+    <h2 style="color: #004085; margin-top: 0">Admin Alert: Booking Status Changed</h2>
+    <p>A booking status has been updated in the system:</p>
+    
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 5px">
+      <table width="100%" style="margin: 15px 0; border-collapse: collapse">
+        <tr>
+          <td style="padding: 8px; width: 30%; border-bottom: 1px solid #dee2e6; font-weight: bold">Booking ID</td>
+          <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${safeData.bookingId}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; width: 30%; border-bottom: 1px solid #dee2e6; font-weight: bold">Status Change</td>
+          <td style="padding: 8px; border-bottom: 1px solid #dee2e6">${safeData.oldStatus} → ${safeData.newStatus}</td>
+        </tr>
+      </table>
+      
+      <div style="margin-top: 20px">
+        <p><strong>Property:</strong> ${safeData.propertyTitle}</p>
+        <p><strong>Visitor:</strong> ${safeData.userName}</p>
+        <p><strong>Date:</strong> ${safeData.bookingDate}</p>
+        <p><strong>Time:</strong> ${safeData.bookingTime}</p>
+        <p><strong>Owner Email:</strong> ${safeData.ownerEmail}</p>
+      </div>
+    </div>
+  `,
+    { ...safeData, subject: `Admin: Booking ${safeData.bookingId} Status Update` }
+  );
+};

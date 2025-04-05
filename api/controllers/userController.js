@@ -21,6 +21,9 @@ import {
   getSubscriptionEmail,
   getUnsubscriptionEmail,
   getAdminUnsubscriptionNotification,
+  generateUserStatusEmail,
+  generateOwnerStatusEmail,
+  generateAdminStatusEmail,
 } from "../src/utils/emailTemplates.js";
 import dotenv from "dotenv";
 import stripHtml from "strip-html";
@@ -1277,6 +1280,7 @@ export const updateExpiredBookings = async () => {
         $set: {
           "bookedVisit.$[elem].bookingStatus": "expired",
           "bookedVisit.$[elem].metadata.cancelledAt": new Date(),
+          "bookedVisit.$[elem].visitStatus": "expired",
         },
       },
       {
@@ -1284,6 +1288,7 @@ export const updateExpiredBookings = async () => {
         arrayFilters: [
           {
             "elem.bookingStatus": "active",
+            "elem.visitStatus": "expired",
             "elem.date": { $lt: new Date() },
           },
         ],
@@ -1684,10 +1689,10 @@ export const fetchAllBookings = asyncHandler(async (req, res) => {
     // Base query with count
     const [bookings, totalCount] = await Promise.all([
       User.find({ "bookedVisit.0": { $exists: true } })
-        .select("name email bookedVisit -_id")
+        .select("name email telephone bookedVisit")
         .populate({
           path: "bookedVisit.propertyId",
-          select: "title price address status userEmail",
+          select: "title price address status userEmail gpsCode",
           match: { status: "published" }, // Only include published properties
         })
         .skip(skip)
@@ -1707,12 +1712,15 @@ export const fetchAllBookings = asyncHandler(async (req, res) => {
             user: {
               name: user.name,
               email: user.email,
+              telephone: user.telephone,
             },
             property: {
               title: booking.propertyId.title,
               price: booking.propertyId.price,
               address: booking.propertyId.address,
               owner: booking.propertyId.userEmail,
+              propertyId: booking.propertyId._id,
+              gpsCode: booking.propertyId.gpsCode,
             },
             // Remove internal IDs from response
             propertyId: undefined,
@@ -1767,18 +1775,13 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    // 1. Update booking status with atomic operation
-    const updateResult = await User.findOneAndUpdate(
-      { email: userEmail, "bookedVisit.id": bookingId },
-      { $set: { "bookedVisit.$.visitStatus": visitStatus } },
-      {
-        new: true,
-        projection: { "bookedVisit.$": 1 },
-        session,
-      }
-    ).session(session);
+    // 1. First find the user to get the current booking details
+    const user = await User.findOne({
+      email: userEmail,
+      "bookedVisit.id": bookingId,
+    }).session(session);
 
-    if (!updateResult) {
+    if (!user) {
       await session.abortTransaction();
       return res.status(404).json({
         success: false,
@@ -1786,43 +1789,128 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
       });
     }
 
-    // 2. Fetch related data for notifications
-    const updatedBooking = updateResult.bookedVisit[0];
-    const [property, owner, admins] = await Promise.all([
-      Residency.findById(updatedBooking.propertyId)
-        .select("title userEmail address images")
-        .session(session),
-      User.findOne({ email: updatedBooking.propertyId.userEmail })
-        .select("name email")
-        .session(session),
+    // 2. Find the specific booking to get the current status
+    const booking = user.bookedVisit.find((b) => b.id === bookingId);
+    if (!booking) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    // 3. Update the booking status directly
+    await User.updateOne(
+      { email: userEmail, "bookedVisit.id": bookingId },
+      { $set: { "bookedVisit.$.visitStatus": visitStatus } },
+      { session }
+    );
+
+    // 4. Fetch the updated booking with property details
+    const updatedUser = await User.findOne({ email: userEmail })
+      .select({ bookedVisit: { $elemMatch: { id: bookingId } } })
+      .populate({
+        path: "bookedVisit.propertyId",
+        select: "title userEmail address images",
+      })
+      .session(session);
+
+    if (
+      !updatedUser ||
+      !updatedUser.bookedVisit ||
+      updatedUser.bookedVisit.length === 0
+    ) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found after update",
+      });
+    }
+
+    const updatedBooking = updatedUser.bookedVisit[0];
+
+    // Check if property exists and has required fields
+    if (!updatedBooking.propertyId) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: "Property not found for this booking",
+      });
+    }
+
+    const property = updatedBooking.propertyId;
+    const ownerEmail = property.userEmail;
+
+    if (!ownerEmail) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: "Property owner email not found",
+      });
+    }
+
+    // Get owner and admin details
+    const [owner, admins] = await Promise.all([
+      User.findOne({ email: ownerEmail }).select("name email").session(session),
       User.find({ role: "admin" }).select("email").session(session),
     ]);
 
-    // 3. Prepare notification data
+    // Prepare notification data
     const emailData = {
       bookingId,
-      oldStatus: updatedBooking.visitStatus,
+      oldStatus: booking.visitStatus,
       newStatus: visitStatus,
-      propertyTitle: property.title,
-      propertyAddress: property.address,
+      propertyTitle: property.title || "Unknown Property",
+      propertyAddress: property.address || "Address not available",
       bookingDate: dayjs(updatedBooking.date, "DD/MM/YYYY").format(
         "MMM D, YYYY"
       ),
       bookingTime: dayjs(updatedBooking.time, "HH:mm").format("h:mm A"),
-      propertyImage: property.images[0] || null,
+      propertyImage: property.images?.[0] || null,
       supportEmail: process.env.SUPPORT_EMAIL,
+      userName: user.name || "Customer",
     };
 
-    // 4. Send notifications in parallel
-    await Promise.all([
-      sendUserNotification(userEmail, emailData),
-      sendOwnerNotification(owner.email, emailData),
-      sendAdminNotifications(admins, emailData),
-    ]);
+    // Send notifications (only if owner exists)
+    const notificationPromises = [
+      sendEmail(
+        userEmail,
+        `Booking Status Update - ${visitStatus.toUpperCase()}`,
+        generateUserStatusEmail(emailData)
+      ).catch((e) => console.error("Failed to send user email:", e)),
+    ];
+
+    if (owner?.email) {
+      notificationPromises.push(
+        sendEmail(
+          owner.email,
+          `Booking Update for ${emailData.propertyTitle}`,
+          generateOwnerStatusEmail(emailData)
+        ).catch((e) => console.error("Failed to send owner email:", e))
+      );
+    }
+
+    // Send admin notifications
+    admins.forEach((admin) => {
+      notificationPromises.push(
+        sendEmail(
+          admin.email,
+          `Admin: Booking ${bookingId} Status Update`,
+          generateAdminStatusEmail({
+            ...emailData,
+            ownerEmail: owner?.email || "Not available",
+          })
+        ).catch((e) =>
+          console.error(`Failed to send admin email to ${admin.email}:`, e)
+        )
+      );
+    });
+
+    await Promise.all(notificationPromises);
 
     await session.commitTransaction();
 
-    // 5. Return success response
+    // Return success response
     res.json({
       success: true,
       message: "Booking status updated successfully",
@@ -1835,7 +1923,6 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     await session.abortTransaction();
-
     console.error("Status update error:", error);
 
     const response = {
@@ -1861,49 +1948,33 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
 
 // Helper Functions ------------------------------------------------------
 
-async function sendUserNotification(email, data) {
-  try {
-    await transporter.sendMail({
-      to: email,
-      subject: `Booking Status Update - ${data.newStatus.toUpperCase()}`,
-      html: generateUserStatusEmail(data),
-      text: stripHtml(generateUserStatusEmail(data)).result,
-    });
-  } catch (error) {
-    console.error("Failed to send user notification:", error);
-  }
-}
+// async function sendUserNotification(email, data) {
+//   try {
+//     await transporter.sendMail({
+//       to: email,
+//       subject: `Booking Status Update - ${data.newStatus.toUpperCase()}`,
+//       html: generateUserStatusEmail(data),
+//       text: stripHtml(generateUserStatusEmail(data)).result,
+//     });
+//   } catch (error) {
+//     console.error("Failed to send user notification:", error);
+//   }
+// }
 
-async function sendOwnerNotification(ownerEmail, data) {
-  if (!ownerEmail) return;
+// async function sendOwnerNotification(ownerEmail, data) {
+//   if (!ownerEmail) return;
 
-  try {
-    await transporter.sendMail({
-      to: ownerEmail,
-      subject: `Booking Update for ${data.propertyTitle}`,
-      html: generateOwnerStatusEmail(data),
-      text: stripHtml(generateOwnerStatusEmail(data)).result,
-    });
-  } catch (error) {
-    console.error("Failed to send owner notification:", error);
-  }
-}
-
-async function sendAdminNotifications(admins, data) {
-  const adminEmails = admins.map((a) => a.email);
-  if (adminEmails.length === 0) return;
-
-  try {
-    await transporter.sendMail({
-      bcc: adminEmails,
-      subject: `Admin Alert: Booking ${data.bookingId} Updated`,
-      html: generateAdminStatusEmail(data),
-      text: stripHtml(generateAdminStatusEmail(data)).result,
-    });
-  } catch (error) {
-    console.error("Failed to send admin notifications:", error);
-  }
-}
+//   try {
+//     await transporter.sendMail({
+//       to: ownerEmail,
+//       subject: `Booking Update for ${data.propertyTitle}`,
+//       html: generateOwnerStatusEmail(data),
+//       text: stripHtml(generateOwnerStatusEmail(data)).result,
+//     });
+//   } catch (error) {
+//     console.error("Failed to send owner notification:", error);
+//   }
+// }
 
 // =========================================================================
 

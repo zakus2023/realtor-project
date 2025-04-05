@@ -24,9 +24,12 @@ import {
   generateUserStatusEmail,
   generateOwnerStatusEmail,
   generateAdminStatusEmail,
+  emailWrapper,
 } from "../src/utils/emailTemplates.js";
 import dotenv from "dotenv";
 import stripHtml from "strip-html";
+// for contact admin email
+
 
 dotenv.config();
 
@@ -2252,3 +2255,54 @@ export const unSubscribe = asyncHandler(async (req, res) => {
     res.json(response);
   }
 });
+
+// contact admin email
+
+
+export const sendContactEmail = async (req, res) => {
+  const { to_email, from_name, from_email, subject, message } = req.body;
+
+  // Validate input
+  if (!from_name || !from_email || !message) {
+    return res.status(400).json({
+      success: false,
+      message: "Missing required fields",
+    });
+  }
+
+  try {
+    // Create email content using your template
+    const emailContent = emailWrapper(
+      `
+      <h2 style="color: #004085; margin-top: 0">New Contact Form Submission</h2>
+      <div style="background: #f8f9fa; padding: 20px; border-radius: 5px">
+        <p><strong>From:</strong> ${from_name} &lt;${from_email}&gt;</p>
+        <p><strong>Subject:</strong> ${subject || "No Subject"}</p>
+        <div style="margin-top: 15px; border-top: 1px solid #dee2e6; padding-top: 15px">
+          ${message.replace(/\n/g, "<br>")}
+        </div>
+      </div>
+    `,
+      {
+        subject: subject || "New Message from Contact Form",
+        currentYear: new Date().getFullYear(),
+      }
+    );
+
+    // Send email
+    await transporter.sendMail({
+      from: `"Contact Form" <${process.env.GMAIL_USER}>`,
+      to: to_email,
+      subject: subject || "New Message from Contact Form",
+      html: emailContent,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Email send error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send email",
+    });
+  }
+};

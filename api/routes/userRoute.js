@@ -19,7 +19,8 @@ import {
   updateVisitStatusFromAdmin,
   userFavourites,
   verifyMoMoPayment,
-  createPaymentIntent
+  createPaymentIntent,
+  sendContactEmail
 } from "../controllers/userController.js";
 
 const router = express.Router();
@@ -31,6 +32,7 @@ router.get("/payment-status", getPaymentStatus);
 router.post("/paystack/momo", payWithMoMo);
 router.get("/paystack/verify", verifyMoMoPayment);
 router.post("/paystack/webhook", paystackWebhook);
+router.post("/send-email", sendContactEmail);
 
 // ================ Authenticated Routes ================
 router.post("/bookVisit/:id", bookVisit);

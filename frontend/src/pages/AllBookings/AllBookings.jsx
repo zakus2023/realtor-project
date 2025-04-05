@@ -39,20 +39,33 @@ function AllBookings() {
     }
   );
 
-  const handleStatusChange = (value) => {
+  const handleStatusChange = (value, field) => {
     const updatedBooking = {
       ...selectedBooking,
-      visitStatus: value,
-      paymentStatus: value,
+      [field]: value,
+      // Automatically set payment to "paid" when visit is marked "completed"
+      ...(field === "visitStatus" && value === "completed"
+        ? {
+            payment: {
+              ...selectedBooking.payment,
+              status: "paid",
+            },
+          }
+        : {}),
     };
     setSelectedBooking(updatedBooking);
 
+    // Prepare the status to send to backend
+    const statusToUpdate =
+      field === "paymentStatus"
+        ? { paymentStatus: value }
+        : { visitStatus: value };
+
     // Trigger the mutation
     updateStatus({
-      userEmail: selectedBooking.user?.email, // Use visitor's email from the booking
+      userEmail: selectedBooking.user?.email,
       bookingId: selectedBooking.id,
-      visitStatus: value,
-      status: value,
+      ...statusToUpdate,
     });
   };
 
@@ -133,6 +146,17 @@ function AllBookings() {
       responsive: ["md"], // Show on medium screens and larger
     },
     {
+      title: "Payment Status",
+      dataIndex: "payment",
+      key: "paymentStatus",
+      render: (payment) => (
+        <span className={`payment-status ${payment?.status || "pending"}`}>
+          {payment?.status?.toUpperCase() || "PENDING"}
+        </span>
+      ),
+      responsive: ["md"],
+    },
+    {
       title: "Action",
       key: "action",
       render: (_, record) => (
@@ -210,66 +234,75 @@ function AllBookings() {
           style={{
             marginTop: "20px",
             display: "flex",
-            justifyContent: "flex-start",
-            alignItems: "center",
             gap: "20px",
+            flexWrap: "wrap",
           }}
         >
-          <div
-            style={{ display: "flex", alignItems: "center", gap: "2px" }}
-            className="legend-item"
-          >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <div
               style={{
-                width: "16px",
-                height: "16px",
+                width: 16,
+                height: 16,
                 backgroundColor: "green",
-                borderRadius: "4px",
+                borderRadius: 4,
               }}
             />
-            <span>Pending</span>
+            <span>Pending (Visit)</span>
           </div>
-          <div
-            style={{ display: "flex", alignItems: "center", gap: "2px" }}
-            className="legend-item"
-          >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <div
               style={{
-                width: "16px",
-                height: "16px",
+                width: 16,
+                height: 16,
                 backgroundColor: "blue",
-                borderRadius: "4px",
+                borderRadius: 4,
               }}
             />
             <span>Completed</span>
           </div>
-          <div
-            style={{ display: "flex", alignItems: "center", gap: "2px" }}
-            className="legend-item"
-          >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <div
               style={{
-                width: "16px",
-                height: "16px",
+                width: 16,
+                height: 16,
                 backgroundColor: "red",
-                borderRadius: "4px",
+                borderRadius: 4,
               }}
             />
             <span>Cancelled</span>
           </div>
-          <div
-            style={{ display: "flex", alignItems: "center", gap: "2px" }}
-            className="legend-item"
-          >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <div
               style={{
-                width: "16px",
-                height: "16px",
+                width: 16,
+                height: 16,
                 backgroundColor: "orange",
-                borderRadius: "4px",
+                borderRadius: 4,
               }}
             />
             <span>Expired</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div
+              style={{
+                width: 16,
+                height: 16,
+                backgroundColor: "gray",
+                borderRadius: 4,
+              }}
+            />
+            <span>Pending (Payment)</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div
+              style={{
+                width: 16,
+                height: 16,
+                backgroundColor: "purple",
+                borderRadius: 4,
+              }}
+            />
+            <span>Paid</span>
           </div>
         </div>
       </div>
@@ -309,17 +342,18 @@ function AllBookings() {
             </Form.Item>
             <Form.Item label="Payment Status">
               <Select
-                value={selectedBooking.payment.status}
-                onChange={handleStatusChange}
+                value={selectedBooking.payment?.status || "pending"}
+                onChange={(value) => handleStatusChange(value, "paymentStatus")}
               >
                 <Option value="pending">Pending</Option>
                 <Option value="paid">Paid</Option>
               </Select>
             </Form.Item>
+
             <Form.Item label="Visit Status">
               <Select
                 value={selectedBooking.visitStatus}
-                onChange={handleStatusChange}
+                onChange={(value) => handleStatusChange(value, "visitStatus")}
               >
                 <Option value="pending">Pending</Option>
                 <Option value="completed">Completed</Option>

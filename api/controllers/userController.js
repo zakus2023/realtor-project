@@ -1804,9 +1804,9 @@ export const fetchAllBookings = asyncHandler(async (req, res) => {
 // update visit status
 export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
   const { userEmail, bookingId } = req.params;
-  const { visitStatus, status } = req.body;
+  const { visitStatus, paymentStatus } = req.body; 
 
-  // Validate input parameters
+  // Validate input parameters - allowed status values for both visit and payment
   const allowedStatuses = ["pending", "confirmed", "completed", "cancelled", "paid"];
   if (!allowedStatuses.includes(visitStatus)) {
     return res.status(400).json({
@@ -1816,6 +1816,7 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
     });
   }
 
+  // Start database transaction for atomic operations
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -1844,14 +1845,19 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
       });
     }
 
-    // 3. Update the booking status directly
+    // 3. Update both visit status and payment status in a single operation
     await User.updateOne(
       { email: userEmail, "bookedVisit.id": bookingId },
-      { $set: { "bookedVisit.$.visitStatus": visitStatus } },
+      { 
+        $set: { 
+         "bookedVisit.$.visitStatus": visitStatus,
+        "bookedVisit.$.payment.status": paymentStatus // Directly use paymentStatus
+        } 
+      },
       { session }
     );
 
-    // 4. Fetch the updated booking with property details
+    // 4. Fetch the updated booking with property details for notifications
     const updatedUser = await User.findOne({ email: userEmail })
       .select({ bookedVisit: { $elemMatch: { id: bookingId } } })
       .populate({
@@ -1860,11 +1866,7 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
       })
       .session(session);
 
-    if (
-      !updatedUser ||
-      !updatedUser.bookedVisit ||
-      updatedUser.bookedVisit.length === 0
-    ) {
+    if (!updatedUser || !updatedUser.bookedVisit || updatedUser.bookedVisit.length === 0) {
       await session.abortTransaction();
       return res.status(404).json({
         success: false,
@@ -1874,7 +1876,7 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
 
     const updatedBooking = updatedUser.bookedVisit[0];
 
-    // Check if property exists and has required fields
+    // Verify property exists and has required fields
     if (!updatedBooking.propertyId) {
       await session.abortTransaction();
       return res.status(404).json({
@@ -1894,22 +1896,21 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
       });
     }
 
-    // Get owner and admin details
+    // Get owner and admin details for notifications
     const [owner, admins] = await Promise.all([
       User.findOne({ email: ownerEmail }).select("name email").session(session),
       User.find({ role: "admin" }).select("email").session(session),
     ]);
 
-    // Prepare notification data
+    // Prepare notification data with both visit and payment status
     const emailData = {
       bookingId,
       oldStatus: booking.visitStatus,
       newStatus: visitStatus,
+      paymentStatus: visitStatus === "completed" ? "paid" : booking.payment.status,
       propertyTitle: property.title || "Unknown Property",
       propertyAddress: property.address || "Address not available",
-      bookingDate: dayjs(updatedBooking.date, "DD/MM/YYYY").format(
-        "MMM D, YYYY"
-      ),
+      bookingDate: dayjs(updatedBooking.date, "DD/MM/YYYY").format("MMM D, YYYY"),
       bookingTime: dayjs(updatedBooking.time, "HH:mm").format("h:mm A"),
       propertyImage: property.images?.[0] || null,
       supportEmail: process.env.SUPPORT_EMAIL,
@@ -1935,7 +1936,7 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
       );
     }
 
-    // Send admin notifications
+    // Send admin notifications with payment status info
     admins.forEach((admin) => {
       notificationPromises.push(
         sendEmail(
@@ -1944,6 +1945,7 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
           generateAdminStatusEmail({
             ...emailData,
             ownerEmail: owner?.email || "Not available",
+            paymentStatus: emailData.paymentStatus,
           })
         ).catch((e) =>
           console.error(`Failed to send admin email to ${admin.email}:`, e)
@@ -1952,17 +1954,17 @@ export const updateVisitStatusFromAdmin = asyncHandler(async (req, res) => {
     });
 
     await Promise.all(notificationPromises);
-
     await session.commitTransaction();
 
-    // Return success response
+    // Return success response with both statuses
     res.json({
       success: true,
       message: "Booking status updated successfully",
       updateDetails: {
         bookingId,
         previousStatus: emailData.oldStatus,
-        newStatus: emailData.newStatus,
+        newVisitStatus: emailData.newStatus,
+        newPaymentStatus: emailData.paymentStatus,
         updatedAt: new Date(),
       },
     });

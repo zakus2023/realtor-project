@@ -45,6 +45,45 @@
   font-size: 14px; /* Default font size for legend text */
 }
 
+/* Payment Status Styles */
+.payment-status {
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.payment-status.paid {
+  background-color: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+
+.payment-status.pending {
+  background-color: #fffbe6;
+  color: #faad14;
+  border: 1px solid #ffe58f;
+}
+/* Fix payment status display colors */
+.payment-status.paid {
+  color: purple;
+  font-weight: bold;
+}
+
+.payment-status.pending {
+  color: gray;
+  font-weight: bold;
+}
+
+/* Add to legend items */
+.legend-color.paid {
+  background-color: #52c41a;
+}
+
+.legend-color.pending {
+  background-color: #faad14;
+}
+
 /* Responsive styles */
 @media (max-width: 768px) {
   .all-bookings-container {

@@ -4,7 +4,6 @@ import SearchBar from "../../Components/SearchBar/SearchBar";
 import { PuffLoader } from "react-spinners";
 import PropertyCard from "../../Components/PropertyCard/PropertyCard";
 import { useQuery } from "react-query";
-import { useAuth0 } from "@auth0/auth0-react";
 import { fetchAllUsersProperty } from "../../utils/api";
 import UserDetailsContext from "../../context/UserDetailsContext";
 import { toast } from "react-toastify";

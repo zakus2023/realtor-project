@@ -5,9 +5,9 @@ import { toast } from "react-toastify"; // Import toast notifications for error 
 
 // Create an Axios instance with a base URL for API requests
 export const api = axios.create({
-  baseURL: "http://localhost:5000", // Base URL for backend API requests
+  baseURL: import.meta.env.BACKEND_BASE_URL || "http://localhost:5000", // Base URL for backend API requests
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 // Update your fetchUserDetails to handle token properly
@@ -90,7 +90,6 @@ export const createUser = async (userData, token) => {
 };
 // book a visit
 
-
 export const bookVisit = async ({
   date,
   time,
@@ -100,7 +99,7 @@ export const bookVisit = async ({
   userId,
   paymentMethod,
   paymentReference,
-  amount
+  amount,
 }) => {
   try {
     const response = await api.post(
@@ -112,7 +111,7 @@ export const bookVisit = async ({
         userId, // Include userId
         paymentMethod,
         paymentReference,
-        amount
+        amount,
       },
       {
         headers: {
@@ -128,7 +127,9 @@ export const bookVisit = async ({
     }
   } catch (error) {
     console.error("Booking error:", error);
-    toast.error(error.response?.data?.message || error.message || "Booking failed");
+    toast.error(
+      error.response?.data?.message || error.message || "Booking failed"
+    );
     throw error;
   }
 };

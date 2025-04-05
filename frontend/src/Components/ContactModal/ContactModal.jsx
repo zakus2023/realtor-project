@@ -23,7 +23,7 @@ const ContactModal = ({ isOpen, onClose }) => {
     e.preventDefault();
 
     try {
-      const response = await fetch(`${BACKEND_BASE_URL}/api/user/send-email`, {
+      const response = await fetch(`${VITE_BACKEND_BASE_URL}/api/user/send-email`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

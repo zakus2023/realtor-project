@@ -53,7 +53,7 @@ function GetStarted() {
 
     try {
       setSubscribing(true);
-      const response = await fetch(`${BACKEND_BASE_URL}/api/user/subscribe`, {
+      const response = await fetch(`${VITE_BACKEND_BASE_URL}/api/user/subscribe`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

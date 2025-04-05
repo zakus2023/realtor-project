@@ -4,12 +4,12 @@ import { toast } from "react-toastify"; // Import toast notifications for error 
 
 // Create an Axios instance with a base URL for API requests
 export const api = axios.create({
-  baseURL: import.meta.env.BACKEND_BASE_URL, // Base URL for backend API requests
+  baseURL: import.meta.env.VITE_BACKEND_BASE_URL, // Base URL for backend API requests
   headers: {
     "Content-Type": "application/json",
   },
 });
-console.log(import.meta.env.BACKEND_BASE_URL)
+console.log(import.meta.env.VITE_BACKEND_BASE_URL)
 
 // Update your fetchUserDetails to handle token properly
 export const fetchUserDetails = async (email, token) => {
